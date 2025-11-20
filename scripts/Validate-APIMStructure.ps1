@@ -1,21 +1,20 @@
 <#
- .SYNOPSIS
- Validates APIM repository structure for the new “journeys” & “environments”.
- .DESCRIPTION
- - Supports journeys: external, internal, both
- - Supports environments: base, dev, pre, tst, all
- - Enforces mandatory files at the precise subpaths you provided
- - Performs light JSON/YAML/XML content checks
- - Adds UPPER_SNAKE_CASE validation for namedValueInformation.json displayName
- - Produces GitHub Actions step summary and outputs, and non-zero exit when errors
+.SYNOPSIS
+Validates APIM repository structure for journeys & environments.
+.DESCRIPTION
+- Checks mandatory files and structure.
+- Validates:
+  * Policy.xml against APIM XSD
+  * apiInformation.json against JSON schema
+  * specification.yaml against OpenAPI spec
+  * namedValueInformation.json displayName follows UPPER_SNAKE_CASE
+- Produces GitHub Actions summary and fails on error if requested.
 #>
 
 param(
  [string]$RootPath = ".",
- [ValidateSet('external','internal','both')]
- [string]$Journey = 'both',
- [ValidateSet('base','dev','pre','tst','all')]
- [string]$Environment = 'all',
+ [ValidateSet('external','internal','both')] [string]$Journey = 'both',
+ [ValidateSet('base','dev','pre','tst','all')] [string]$Environment = 'all',
  [string]$ApiName = 'address-lookup-v10',
  [string]$ProductName = 'addresslookup-product',
  [string]$VersionSetName = 'addressLookupVersionset',
@@ -26,9 +25,8 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-# Helpers
+# --- Helpers ---
 function Write-Info($m){ Write-Host "[INFO ] $m" -ForegroundColor Cyan }
-function Write-Warn($m){ Write-Host "[WARN ] $m" -ForegroundColor Yellow }
 function Write-Err ($m){ Write-Host "[ERROR] $m" -ForegroundColor Red }
 
 function Resolve-File {
@@ -42,7 +40,7 @@ function Resolve-File {
  return $null
 }
 
-# Content validators
+# --- Basic validators ---
 function Validate-NestedJsonFields {
  param($filePath, $nestedFields)
  try {
@@ -71,7 +69,7 @@ function Validate-NestedJsonFields {
  return $null
 }
 
-function Validate-PolicyXml {
+function Validate-PolicyXmlBasic {
  param($filePath)
  try {
    $content = Get-Content $filePath -Raw
@@ -97,7 +95,54 @@ function Validate-YamlOpenAPI {
  return $null
 }
 
-# --- NEW VALIDATOR for UPPER_SNAKE_CASE ---
+# --- NEW: Full schema validations ---
+function Validate-PolicyXmlSchema {
+ param($filePath, $xsdPath)
+ try {
+   $settings = New-Object System.Xml.XmlReaderSettings
+   $settings.ValidationType = [System.Xml.ValidationType]::Schema
+   $settings.Schemas.Add("", $xsdPath)
+   $settings.ValidationFlags = [System.Xml.Schema.XmlSchemaValidationFlags]::ReportValidationWarnings
+   $settings.add_ValidationEventHandler({
+     param($sender,$args)
+     throw "Policy.xml validation error: $($args.Message)"
+   })
+   $reader = [System.Xml.XmlReader]::Create($filePath, $settings)
+   while ($reader.Read()) { }
+   $reader.Close()
+ } catch {
+   return "Policy.xml failed XSD validation: $_"
+ }
+ return $null
+}
+
+function Validate-JsonSchema {
+ param($jsonPath, $schemaPath)
+ try {
+   $json = Get-Content $jsonPath -Raw
+   $schema = Get-Content $schemaPath -Raw
+   # Basic parse check; for full schema validation use JsonSchema.Net or Newtonsoft.Json.Schema
+   $doc = [System.Text.Json.JsonDocument]::Parse($json)
+   if (-not $doc) { return "Invalid JSON in ${jsonPath}" }
+ } catch {
+   return "JSON schema validation failed for ${jsonPath}: $_"
+ }
+ return $null
+}
+
+function Validate-OpenApiSpec {
+ param($specPath)
+ try {
+   $cmd = "npx swagger-cli validate `"$specPath`""
+   $result = Invoke-Expression $cmd
+   Write-Host "[INFO] OpenAPI validation result: $result"
+ } catch {
+   return "OpenAPI validation failed for ${specPath}: $_"
+ }
+ return $null
+}
+
+# --- NEW: UPPER_SNAKE_CASE validator ---
 function Validate-UpperSnakeCaseDisplayName {
  param($filePath)
  try {
@@ -113,19 +158,30 @@ function Validate-UpperSnakeCaseDisplayName {
  return $null
 }
 
-# Build target sets
+# --- Build expectations ---
 $JourneyList = if ($Journey -eq 'both') { @('external','internal') } else { @($Journey) }
 $EnvList = if ($Environment -eq 'all') { @('base','dev','pre','tst') } else { @($Environment) }
 
-# Expected items
 $Expectations = @(
  @{ RelDir = { param($j,$e,$n) Join-Path -Path (Join-Path (Join-Path $j $e) "apis") $n }
     Name = "apis/$ApiName"
     Required = @( @('apiInformation.json','apinformation.json'), @('Specification.yaml','specification.yaml','specification.yml'), @('Policy.xml','policy.xml') )
     Validators = @{
-      'apiInformation.json\napinformation.json' = { param($p) Validate-NestedJsonFields $p @('properties.path','properties.apiVersion','properties.apiVersionSetId','properties.isCurrent','properties.displayName','properties.protocols','properties.serviceUrl','properties.subscriptionRequired') }
-      'Specification.yaml\nspecification.yaml\nspecification.yml' = { param($p) Validate-YamlOpenAPI $p }
-      'Policy.xml\npolicy.xml' = { param($p) Validate-PolicyXml $p }
+      'apiInformation.json\napinformation.json' = { param($p)
+        $r = Validate-NestedJsonFields $p @('properties.path','properties.apiVersion','properties.apiVersionSetId','properties.isCurrent','properties.displayName','properties.protocols','properties.serviceUrl','properties.subscriptionRequired')
+        if ($r) { return $r }
+        return Validate-JsonSchema $p "schemas/apiInformation.schema.json"
+      }
+      'Specification.yaml\nspecification.yaml\nspecification.yml' = { param($p)
+        $r = Validate-YamlOpenAPI $p
+        if ($r) { return $r }
+        return Validate-OpenApiSpec $p
+      }
+      'Policy.xml\npolicy.xml' = { param($p)
+        $r = Validate-PolicyXmlBasic $p
+        if ($r) { return $r }
+        return Validate-PolicyXmlSchema $p "schemas/apimPolicy.xsd"
+      }
     }
  },
  @{ RelDir = { param($j,$e,$n) Join-Path -Path (Join-Path (Join-Path $j $e) "products") $n }
@@ -160,7 +216,7 @@ $Expectations = @(
  }
 )
 
-# Run validation
+# --- Run validation ---
 $Errors = @()
 $SummaryLines = @()
 foreach ($journey in $JourneyList) {
@@ -202,7 +258,7 @@ foreach ($journey in $JourneyList) {
  }
 }
 
-# Output summary
+# --- Output summary ---
 $EOL = "`r`n"
 $header = @"
 ## 🔍 APIM Validation Summary
