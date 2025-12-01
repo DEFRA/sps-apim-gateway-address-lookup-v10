@@ -1,0 +1,141 @@
+
+name: Sync subtree → Central (develop)
+
+on:
+  push:
+    branches: [ develop ]
+
+concurrency:
+  group: subtree-sync-develop
+  cancel-in-progress: true
+
+permissions:
+  contents: read  # pushing to central is done via SSH deploy key
+
+env:
+  # --- Central repo & branch ---
+  CENTRAL_REPO: DEFRA/sps-apim-gateway
+  CENTRAL_BRANCH: develop
+
+  # --- Team repo settings ---
+  TEAM_REMOTE_NAME: address-lookup-v10
+  TEAM_REPO_URL: DEFRA/sps-apim-gateway-address-lookup-v10
+  TEAM_BRANCH: develop
+
+  # --- Subtree prefixes ---
+  INTERNAL_PREFIX: internal/base/apis/address-lookup-v10
+  EXTERNAL_PREFIX: external/base/apis/address-lookup-v10
+
+  REQUIRE_LINEAR_HISTORY: "false"
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout (team repo)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Start SSH agent & load central deploy key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.CENTRAL_SYNC_SSH_KEY }}
+
+      - name: Prime known_hosts
+        run: ssh-keyscan -H github.com >> ~/.ssh/known_hosts
+
+      - name: Configure Git identity
+        run: |
+          git config --global user.name  "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Clone central repo and sync internal/external folders
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          set -x
+
+          echo "=== Clone central repo ==="
+          git clone --depth=50 "git@github.com:${CENTRAL_REPO}.git" central-repo
+          cd central-repo
+
+          echo "=== Checkout central branch ==="
+          git fetch --no-tags origin "${CENTRAL_BRANCH}" --depth=50
+          git checkout -B "${CENTRAL_BRANCH}" FETCH_HEAD
+
+          echo "=== Add team remote and fetch ==="
+          git remote add "${TEAM_REMOTE_NAME}" \
+            "https://x-access-token:${GITHUB_TOKEN}@github.com/${TEAM_REPO_URL}.git" \
+            || git remote set-url "${TEAM_REMOTE_NAME}" \
+            "https://x-access-token:${GITHUB_TOKEN}@github.com/${TEAM_REPO_URL}.git"
+          git fetch --no-tags "${TEAM_REMOTE_NAME}" "${TEAM_BRANCH}"
+
+          echo "=== Check for internal/external folders ==="
+          FOLDERS=("internal" "external")
+          for FOLDER in "${FOLDERS[@]}"; do
+            if git ls-tree -r --name-only "refs/remotes/${TEAM_REMOTE_NAME}/${TEAM_BRANCH}" | grep -q "^${FOLDER}/"; then
+              echo "Folder '${FOLDER}' exists. Syncing..."
+              git checkout -B __team_branch__ "refs/remotes/${TEAM_REMOTE_NAME}/${TEAM_BRANCH}"
+              SPLIT_SHA=$(git subtree split -P "${FOLDER}")
+              git checkout "${CENTRAL_BRANCH}"
+
+              if [ -z "${SPLIT_SHA}" ]; then
+                echo "ERROR: subtree split produced no commit for ${FOLDER}. Skipping..."
+                continue
+              fi
+
+              TARGET_PREFIX=$([ "${FOLDER}" = "internal" ] && echo "${INTERNAL_PREFIX}" || echo "${EXTERNAL_PREFIX}")
+              echo "Target prefix: ${TARGET_PREFIX}"
+
+              echo "=== Attempt subtree merge ==="
+              set +e
+              git merge --no-commit -s recursive -Xsubtree="${TARGET_PREFIX}" "${SPLIT_SHA}" \
+                -m "subtree: merge ${TEAM_REMOTE_NAME}/${TEAM_BRANCH}:${FOLDER} → ${TARGET_PREFIX}"
+              MERGE_RC=$?
+              set -e
+
+              if [ $MERGE_RC -ne 0 ]; then
+                echo "Merge failed. Bootstrapping subtree..."
+                git merge --abort 2>/dev/null || git reset --merge
+                git reset --hard
+                git rm -r --cached --ignore-unmatch "${TARGET_PREFIX}" || true
+                git clean -fdx -- "${TARGET_PREFIX}" || true
+                git read-tree --prefix="${TARGET_PREFIX}/" -u "${SPLIT_SHA}"
+                git add -A "${TARGET_PREFIX}"
+                TREE=$(git write-tree)
+                NEWCOMMIT=$(echo "subtree: bootstrap ${TARGET_PREFIX} from split ${SPLIT_SHA}" | git commit-tree "$TREE" -p HEAD -p "${SPLIT_SHA}")
+                git reset --hard "$NEWCOMMIT"
+              else
+                if git diff --quiet --cached -- "${TARGET_PREFIX}"; then
+                  echo "No staged changes for ${TARGET_PREFIX}. Skipping commit."
+                  git merge --abort 2>/dev/null || git reset --merge
+                else
+                  git commit -m "subtree: merge ${TEAM_REMOTE_NAME}/${TEAM_BRANCH}:${FOLDER} → ${TARGET_PREFIX}"
+                fi
+              fi
+            else
+              echo "Folder '${FOLDER}' not found. Skipping..."
+            fi
+          done
+
+          echo "=== Push changes to central repo ==="
+          if [ "${REQUIRE_LINEAR_HISTORY}" = "true" ]; then
+            git fetch origin "${CENTRAL_BRANCH}"
+            git rebase "origin/${CENTRAL_BRANCH}"
+            git push origin "${CENTRAL_BRANCH}"
+          else
+            tries=0
+            until git push origin "${CENTRAL_BRANCH}"; do
+              tries=$((tries+1))
+              if [ $tries -ge 3 ]; then
+                echo "Push failed after ${tries} attempts."
+                exit 1
+              fi
+              echo "Push rejected. Fetching & merging remote then retrying..."
+              git fetch origin "${CENTRAL_BRANCH}"
+              git merge --no-edit "origin/${CENTRAL_BRANCH}"
+            done
+          fi
