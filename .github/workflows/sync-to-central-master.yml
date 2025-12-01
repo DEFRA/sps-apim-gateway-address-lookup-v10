@@ -18,7 +18,7 @@ env:
 
   TEAM_REMOTE_NAME: address-lookup-v10
   TEAM_REPO_URL: DEFRA/sps-apim-gateway-address-lookup-v10
-  TEAM_BRANCH: main
+  TEAM_BRANCH: master
 
   INTERNAL_PREFIX: internal/dev/apis/address-lookup-v10
   EXTERNAL_PREFIX: external/dev/apis/address-lookup-v10
