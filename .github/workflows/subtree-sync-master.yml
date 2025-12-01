@@ -1,0 +1,21 @@
+
+name: Trigger Central Repo Subtree Sync
+
+on:
+  push:
+    branches:
+      - main   # or develop, depending on your team repo branch
+
+jobs:
+  trigger-central-sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Send repository_dispatch to central repo
+        run: |
+          echo "Triggering central repo workflow for subtree sync..."
+          curl -X POST \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/DEFRA/sps-apim-gateway/dispatches \
+            -d "{\"event_type\":\"sync-subtree\",\"client_payload\":{\"team_repo\":\"${GITHUB_REPOSITORY}\",\"branch\":\"${GITHUB_REF_NAME}\"}}"
