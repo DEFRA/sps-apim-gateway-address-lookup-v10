@@ -4,7 +4,7 @@ name: Trigger Central Repo Subtree Sync
 on:
   push:
     branches:
-      - main   # or develop, depending on your team repo branch
+      - master   # or develop, depending on your team repo branch
 
 jobs:
   trigger-central-sync:
