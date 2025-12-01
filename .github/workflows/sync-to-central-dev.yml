@@ -142,3 +142,4 @@ jobs:
               git fetch origin "${CENTRAL_BRANCH}"
               git merge --no-edit "origin/${CENTRAL_BRANCH}"
             done
+            fi
