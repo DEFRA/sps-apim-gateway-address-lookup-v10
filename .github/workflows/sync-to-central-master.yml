@@ -3,7 +3,7 @@ name: Sync subtree → Central (master)
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
 
 concurrency:
   group: subtree-sync-master
@@ -16,8 +16,8 @@ env:
   CENTRAL_REPO: DEFRA/sps-apim-gateway
   BASE_BRANCH: master
 
-  TEAM_REMOTE_NAME: team-a
-  TEAM_REPO_URL: pradhapdefra/sps-apim-gateway-team-a
+  TEAM_REMOTE_NAME: address-lookup-v10
+  TEAM_REPO_URL: DEFRA/sps-apim-gateway-address-lookup-v10
   TEAM_BRANCH: main
 
   INTERNAL_PREFIX: internal/dev/apis/address-lookup-v10
