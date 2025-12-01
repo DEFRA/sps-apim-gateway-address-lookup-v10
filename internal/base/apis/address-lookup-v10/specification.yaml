@@ -3,7 +3,7 @@ info:
   title: Address Lookup
   description: The DEFRA Address Lookup REST API provides a method to search for a list of addresses  by Postal Code or UPRN (Unique Property Reference Number)
   contact:
-    name: 'Department for Environment, Food and Rural Affairs - GOV UK'
+    name: "Department for Environment, Food and Rural Affairs - GOV UK"
     url: https://www.gov.uk/government/organisations/department-for-environment-food-rural-affairs
     email: defra.helpline@defra.gsi.gov.uk
   license:
@@ -49,21 +49,21 @@ paths:
             type: string
         - name: dataset
           in: query
-          description: 'Specifies which dataset is required, Delivery Point Addresses (DPA) or Local Property Identifier (LPI).'
+          description: "Specifies which dataset is required, Delivery Point Addresses (DPA) or Local Property Identifier (LPI)."
           schema:
             type: string
       responses:
-        '202':
+        "202":
           description: Success
-        '400':
-          description: 'Bad Request - There are miscellaneous errors with the request, for example, mismatches between the request and what is allowed for the operation.'
-        '403':
+        "400":
+          description: "Bad Request - There are miscellaneous errors with the request, for example, mismatches between the request and what is allowed for the operation."
+        "403":
           description: Unauthorized or 403 Forbidden - Authentication errors.
-        '404':
+        "404":
           description: Not Found - Invalid URL path.
-        '500':
+        "500":
           description: Internal Server Error - This generic error message appears when an unexpected condition was encountered and a more specific message is not suitable.
-        '503':
+        "503":
           description: Service Unavailable - The caller has hit a throttle or the request was rejected because the service is starting or stopping.
 components:
   securitySchemes:
@@ -76,5 +76,5 @@ components:
       name: subscription-key
       in: query
 security:
-  - apiKeyHeader: [ ]
-  - apiKeyQuery: [ ]
+  - apiKeyHeader: []
+  - apiKeyQuery: []

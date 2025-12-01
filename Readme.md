@@ -180,7 +180,7 @@ sequenceDiagram
 
 ## Local Validation
 ```powershell
-.\scripts\Validate-APIMStructure.ps1 -RootPath . -Environments base
+./scripts/Validate-APIMStructure.ps1" -RootPath . -ParentFolders "external,internal" -Environments "base"
 ```
 
 ## Contacts
