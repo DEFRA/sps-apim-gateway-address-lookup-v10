@@ -3,14 +3,14 @@ name: Sync subtree → Central (master)
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
 
 concurrency:
   group: subtree-pr-master
   cancel-in-progress: true
 
 permissions:
-  contents: write
+  contents: read
 
 env:
   CENTRAL_REPO: DEFRA/sps-apim-gateway
@@ -18,7 +18,7 @@ env:
 
   TEAM_REMOTE_NAME: address-lookup-v10
   TEAM_REPO_URL: DEFRA/sps-apim-gateway-address-lookup-v10
-  TEAM_BRANCH: master
+  TEAM_BRANCH: main
 
   INTERNAL_PREFIX: internal/dev/apis/address-lookup-v10
   EXTERNAL_PREFIX: external/dev/apis/address-lookup-v10
@@ -126,9 +126,3 @@ jobs:
             git branch -m "${PR_BRANCH}"
             git push origin "${PR_BRANCH}"
           }
-
-          echo "=== Create Pull Request ==="
-          gh pr create --title "${CUSTOM_MESSAGE}" \
-            --body "Automated subtree sync for ${TEAM_REMOTE_NAME}" \
-            --base "${BASE_BRANCH}" \
-            --head "${PR_BRANCH}"
