@@ -25,10 +25,9 @@ function Resolve-File {
   return $null
 }
 
-# Validators with debug
+# ✅ apiInformation.json strict validator
 function Test-ApiInformationFields {
     param($filePath)
-    Write-Host "[DEBUG] Validating apiInformation.json: $filePath"
     try {
         $json = Get-Content $filePath -Raw | ConvertFrom-Json
         $props = $json.properties
@@ -40,8 +39,22 @@ function Test-ApiInformationFields {
                 return "Missing mandatory field '$field' in ${filePath}"
             }
             $val = $props.$field
-            if ($null -eq $val -or ($val -is [string] -and [string]::IsNullOrWhiteSpace($val))) {
-                return "Mandatory field '$field' is empty in ${filePath}"
+            switch ($field) {
+                'protocols' {
+                    if (-not $val -or $val.Count -eq 0) {
+                        return "Mandatory field '$field' is empty or missing in ${filePath}"
+                    }
+                }
+                { $_ -in @('isCurrent','subscriptionRequired') } {
+                    if ($null -eq $val) {
+                        return "Mandatory field '$field' is missing in ${filePath}"
+                    }
+                }
+                default {
+                    if ($null -eq $val -or ($val -is [string] -and [string]::IsNullOrWhiteSpace($val))) {
+                        return "Mandatory field '$field' is empty in ${filePath}"
+                    }
+                }
             }
         }
     }
@@ -51,9 +64,9 @@ function Test-ApiInformationFields {
     return $null
 }
 
+# ✅ productInformation.json strict validator
 function Test-ProductInformationFields {
     param($filePath)
-    Write-Host "[DEBUG] Validating productInformation.json: $filePath"
     try {
         $json = Get-Content $filePath -Raw | ConvertFrom-Json
         $props = $json.properties
@@ -76,9 +89,9 @@ function Test-ProductInformationFields {
     return $null
 }
 
+# ✅ versionSetInformation.json strict validator
 function Test-VersionSetInformationFields {
     param($filePath)
-    Write-Host "[DEBUG] Validating versionSetInformation.json: $filePath"
     try {
         $json = Get-Content $filePath -Raw | ConvertFrom-Json
         $props = $json.properties
@@ -101,9 +114,9 @@ function Test-VersionSetInformationFields {
     return $null
 }
 
+# ✅ namedValueInformation.json strict validator
 function Test-NamedValueFields {
     param($filePath)
-    Write-Host "[DEBUG] Validating namedValueInformation.json: $filePath"
     try {
         $json = Get-Content $filePath -Raw | ConvertFrom-Json
         $props = $json.properties
@@ -132,9 +145,9 @@ function Test-NamedValueFields {
     return $null
 }
 
+# ✅ YAML validator
 function Test-YamlOpenAPI {
     param($filePath)
-    Write-Host "[DEBUG] Validating Specification.yaml: $filePath"
     try {
         $content = Get-Content $filePath -Raw
         if ($content.Length -gt 0 -and $content[0] -eq [char]0xFEFF) { $content = $content.Substring(1) }
@@ -152,7 +165,6 @@ function Test-YamlOpenAPI {
 
 function Test-EmptyJsonFile {
     param($filePath)
-    Write-Host "[DEBUG] Validating empty JSON file: $filePath"
     try {
         $raw = (Get-Content $filePath -Raw).Trim()
         if ($raw -eq '{}') { return $null }
@@ -184,7 +196,6 @@ specification.yaml
 specification.yml' = { param($p) Test-YamlOpenAPI $p }
        'Policy.xml
 policy.xml' = { param($p)
-         Write-Host "[DEBUG] Validating Policy.xml: $p"
          $content = Get-Content $p -Raw
          if ($content -notmatch '<policies>') { return "Missing <policies> root element in ${p}" }
          if ($content -notmatch '<inbound>')  { return "Missing <inbound> section in ${p}" }
@@ -215,7 +226,7 @@ policy.xml' = { param($p)
 )
 
 # ------------------------------------------------------------------------------
-# RUN VALIDATION WITH DEBUG
+# RUN VALIDATION
 # ------------------------------------------------------------------------------
 
 $Errors = @()
@@ -247,14 +258,11 @@ foreach ($journey in $JourneyList) {
           $SummaryLines += "$journey | $env | $($exp.Name) | FAIL Missing $($group -join ' / ')"
         } else {
           $leaf = (Split-Path $resolved -Leaf)
-          Write-Host "[DEBUG] Found file: $leaf in $dir"
           $SummaryLines += "$journey | $env | $($exp.Name) | PASS $leaf"
           foreach ($key in $exp.Validators.Keys) {
             $alts = $key -split '\n'
-            Write-Host "[DEBUG] Checking validator keys: $alts against $leaf"
             foreach ($alt in $alts) {
               if ($alt.Trim().ToLower() -eq $leaf.ToLower()) {
-                Write-Host "[DEBUG] Running validator for $leaf"
                 $r = & $exp.Validators[$key] $resolved
                 if ($r) {
                   $Errors += $r

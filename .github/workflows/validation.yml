@@ -21,7 +21,7 @@ jobs:
         id: validate
         shell: pwsh
         run: |
-          pwsh -File "${{ github.workspace }}/scripts/Validate-APIMStructure.ps1" -Journey both -Environment base -FailOnError
+          pwsh -File "${{ github.workspace }}/scripts/Validate-APIMStructure.ps1" -Journey both -Environment base -FailOnError -EnforceUpperSnakeCaseDisplayName
 
           $code = $LASTEXITCODE
           $result = if ($code -eq 0) { '✔️ Passed' } else { '❌ Failed' }
