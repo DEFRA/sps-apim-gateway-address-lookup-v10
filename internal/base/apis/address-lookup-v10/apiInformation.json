@@ -1,7 +1,7 @@
 {
   "properties": {
     "path": "api/address-lookup",
-    "apiVersion": "v1.0",
+    "apiRevision": "1",
     "apiVersionSetId": "/subscriptions/#{{ subscriptionId }}/resourceGroups/#{{ apiManagementServiceResourceGroup }}/providers/Microsoft.ApiManagement/service/#{{ apiManagementServiceName }}/apiVersionSets/addressLookupVersionset",
     "authenticationSettings": {},
     "contact": {
