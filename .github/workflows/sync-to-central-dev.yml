@@ -48,8 +48,8 @@ jobs:
 
       - name: Configure Git identity
         run: |
-          git config --global user.name  "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "${GITHUB_ACTOR}"
+          git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
 
       - name: Clone central repo and sync internal/external folders
         env:
@@ -59,7 +59,6 @@ jobs:
           set -x
 
           TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          RUN_ID=${GITHUB_RUN_ID}
 
           echo "=== Clone central repo ==="
           git clone --depth=50 "git@github.com:${CENTRAL_REPO}.git" central-repo
@@ -93,7 +92,7 @@ jobs:
               TARGET_PREFIX=$([ "${FOLDER}" = "internal" ] && echo "${INTERNAL_PREFIX}" || echo "${EXTERNAL_PREFIX}")
               echo "Target prefix: ${TARGET_PREFIX}"
 
-              CUSTOM_MESSAGE="subtree: sync ${FOLDER} → ${TARGET_PREFIX} | Source: ${TEAM_REMOTE_NAME}/${TEAM_BRANCH} | Timestamp: ${TIMESTAMP} | RunID: ${RUN_ID}"
+              CUSTOM_MESSAGE="subtree: sync | Source: ${TEAM_REMOTE_NAME}/${TEAM_BRANCH} | Timestamp: ${TIMESTAMP}"
 
               echo "=== Attempt subtree merge ==="
               set +e
@@ -143,4 +142,3 @@ jobs:
               git fetch origin "${CENTRAL_BRANCH}"
               git merge --no-edit "origin/${CENTRAL_BRANCH}"
             done
-          fi
