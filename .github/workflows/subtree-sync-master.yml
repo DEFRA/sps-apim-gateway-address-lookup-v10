@@ -3,7 +3,7 @@ name: Sync subtree → Central (master)
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
 
 concurrency:
   group: subtree-pr-master
@@ -18,7 +18,7 @@ env:
 
   TEAM_REMOTE_NAME: address-lookup-v10
   TEAM_REPO_URL: DEFRA/sps-apim-gateway-address-lookup-v10
-  TEAM_BRANCH: main
+  TEAM_BRANCH: master
 
   INTERNAL_PREFIX: internal/dev/apis/address-lookup-v10
   EXTERNAL_PREFIX: external/dev/apis/address-lookup-v10
@@ -86,7 +86,7 @@ jobs:
               fi
 
               TARGET_PREFIX=$([ "${FOLDER}" = "internal" ] && echo "${INTERNAL_PREFIX}" || echo "${EXTERNAL_PREFIX}")
-              CUSTOM_MESSAGE="subtree: merge ${FOLDER} → ${TARGET_PREFIX} | Source: ${TEAM_REMOTE_NAME}/${TEAM_BRANCH} | Timestamp: ${TIMESTAMP} | Actor: ${GITHUB_ACTOR}"
+              CUSTOM_MESSAGE="subtree: merge ${FOLDER} | Source: ${TEAM_REMOTE_NAME}/${TEAM_BRANCH} | Timestamp: ${TIMESTAMP}"
 
               if [ "${CHANGES}" = "false" ]; then
                 PR_BRANCH="pr-subtree/${TEAM_REMOTE_NAME}/$(date +%Y%m%d-%H%M%S)-${GITHUB_SHA::7}"
