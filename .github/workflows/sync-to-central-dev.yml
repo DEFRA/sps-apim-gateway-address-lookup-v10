@@ -92,7 +92,7 @@ jobs:
               TARGET_PREFIX=$([ "${FOLDER}" = "internal" ] && echo "${INTERNAL_PREFIX}" || echo "${EXTERNAL_PREFIX}")
               echo "Target prefix: ${TARGET_PREFIX}"
 
-              CUSTOM_MESSAGE="subtree: sync | Source: ${TEAM_REMOTE_NAME}/${TEAM_BRANCH} | Timestamp: ${TIMESTAMP}"
+              CUSTOM_MESSAGE="subtree: sync ${FOLDER} | Source: ${TEAM_REMOTE_NAME}/${TEAM_BRANCH} | Timestamp: ${TIMESTAMP}"
 
               echo "=== Attempt subtree merge ==="
               set +e
