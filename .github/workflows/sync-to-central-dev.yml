@@ -58,6 +58,9 @@ jobs:
           set -euo pipefail
           set -x
 
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          RUN_ID=${GITHUB_RUN_ID}
+
           echo "=== Clone central repo ==="
           git clone --depth=50 "git@github.com:${CENTRAL_REPO}.git" central-repo
           cd central-repo
@@ -90,10 +93,12 @@ jobs:
               TARGET_PREFIX=$([ "${FOLDER}" = "internal" ] && echo "${INTERNAL_PREFIX}" || echo "${EXTERNAL_PREFIX}")
               echo "Target prefix: ${TARGET_PREFIX}"
 
+              CUSTOM_MESSAGE="subtree: sync ${FOLDER} → ${TARGET_PREFIX} | Source: ${TEAM_REMOTE_NAME}/${TEAM_BRANCH} | Timestamp: ${TIMESTAMP} | RunID: ${RUN_ID}"
+
               echo "=== Attempt subtree merge ==="
               set +e
               git merge --no-commit -s recursive -Xsubtree="${TARGET_PREFIX}" "${SPLIT_SHA}" \
-                -m "subtree: merge ${TEAM_REMOTE_NAME}/${TEAM_BRANCH}:${FOLDER} → ${TARGET_PREFIX}"
+                -m "${CUSTOM_MESSAGE}"
               MERGE_RC=$?
               set -e
 
@@ -106,14 +111,14 @@ jobs:
                 git read-tree --prefix="${TARGET_PREFIX}/" -u "${SPLIT_SHA}"
                 git add -A "${TARGET_PREFIX}"
                 TREE=$(git write-tree)
-                NEWCOMMIT=$(echo "subtree: bootstrap ${TARGET_PREFIX} from split ${SPLIT_SHA}" | git commit-tree "$TREE" -p HEAD -p "${SPLIT_SHA}")
+                NEWCOMMIT=$(echo "${CUSTOM_MESSAGE}" | git commit-tree "$TREE" -p HEAD -p "${SPLIT_SHA}")
                 git reset --hard "$NEWCOMMIT"
               else
                 if git diff --quiet --cached -- "${TARGET_PREFIX}"; then
                   echo "No staged changes for ${TARGET_PREFIX}. Skipping commit."
                   git merge --abort 2>/dev/null || git reset --merge
                 else
-                  git commit -m "subtree: merge ${TEAM_REMOTE_NAME}/${TEAM_BRANCH}:${FOLDER} → ${TARGET_PREFIX}"
+                  git commit -m "${CUSTOM_MESSAGE}"
                 fi
               fi
             else
