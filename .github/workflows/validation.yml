@@ -2,9 +2,7 @@ name: Validate APIM Structure & Carbon Metrics
 
 on:
   pull_request:
-    branches:
-      - master
-      - develop
+    branches: [ master, develop ]
 
 jobs:
   validate-apim-structure:
@@ -13,68 +11,119 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
-      
+
       - name: Ensure full repo checkout
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      
+
       - name: Run APIM Validation check
         id: validate
         shell: pwsh
-        run: |          
+        run: |
           pwsh -File "${{ github.workspace }}/scripts/Validate-APIMStructure.ps1" -Journey both -Environment base -FailOnError
 
           $code = $LASTEXITCODE
-
           $result = if ($code -eq 0) { '✔️ Passed' } else { '❌ Failed' }
           "result=$result" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
           "exit_code=$code" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      # --- NEW: Fetch GB grid carbon intensity (actual; fallback to forecast) ---
+      - name: Fetch GB Grid Carbon Intensity (now)
+        id: ci
+        shell: pwsh
+        run: |
+          try {
+            $now = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mmZ")
+            $url = "https://api.carbonintensity.org.uk/intensity/$now"
+            $resp = Invoke-RestMethod -Uri $url -Method GET -ErrorAction Stop
+
+            # Prefer 'actual', fallback to 'forecast'
+            $ci = $resp.data[0].intensity.actual
+            if (-not $ci) { $ci = $resp.data[0].intensity.forecast }
+            $index = $resp.data[0].intensity.index
+            if (-not $index) { $index = 'unknown' }
+
+            "ci_now=$ci"    | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            "ci_index=$index" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            "ci_source=https://api.carbonintensity.org.uk/intensity/$now" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          }
+          catch {
+            # Graceful fallback to a conservative default if API fails
+            "ci_now=475"    | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            "ci_index=fallback" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            "ci_source=(fallback default 475 gCO2/kWh)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            Write-Host "::warning::Carbon Intensity API unavailable; using default 475 gCO2/kWh."
+          }
 
       - name: Calculate Carbon Metrics (SCI Formula)
         id: carbon
         shell: pwsh
         run: |
+          # ---------- Measurements / proxies ----------
           $CPUTimeSec = (Get-Process | Measure-Object CPU -Sum).Sum
           $RAMMB = (Get-CimInstance Win32_OperatingSystem).TotalVisibleMemorySize / 1024
           $GPUName = (Get-CimInstance Win32_VideoController).Name
           $GPUStatus = (Get-CimInstance Win32_VideoController).Status
 
+          # ---------- Approx energy model (proxy) ----------
+          # NOTE: Directional estimate. Consider refining with step-level sampling later.
           $EnergyKWh = [math]::Round(($CPUTimeSec * 0.0000003) + ($RAMMB * 0.0000001), 6)
-          $CarbonIntensity = 475
-          $Emissions = [math]::Round($EnergyKWh * $CarbonIntensity, 2)
 
-          $AnnualImpact = [math]::Round(($Emissions * 10000 * 365) / 1000, 2)
-          $CostEstimate = [math]::Round($EnergyKWh * 0.15, 4)
+          # ---------- Carbon intensity from live GB grid ----------
+          $CarbonIntensity = [double]"${{ steps.ci.outputs.ci_now }}"
+          $CIIndex = "${{ steps.ci.outputs.ci_index }}"
+          $CISource = "${{ steps.ci.outputs.ci_source }}"
 
+          # ---------- SCI operational term: O = E × I ----------
+          $Emissions = [math]::Round($EnergyKWh * $CarbonIntensity, 2)   # g CO2 per run
+
+          # ---------- Business impact (illustrative calc; clarify assumptions) ----------
+          $AnnualImpact = [math]::Round(($Emissions * 10000 * 365) / 1000, 2)   # kg CO2 (10k runs/day)
+          $CostEstimate = [math]::Round($EnergyKWh * 0.15, 4)                   # £ assuming £0.15/kWh
+
+          # ---------- Remediation guidance ----------
           $remediation = ""
-          if ($Emissions -gt 50) { $remediation += "- Reduce compute-heavy logic or move to renewable region.`n" }
-          else { $remediation += "- No remediation needed.`n" }
+          if ($Emissions -ge 100) {
+            $remediation += "- Profile & optimize hotspots (tests/build steps); reduce CPU time.`n"
+            $remediation += "- Cache dependencies and artifacts more aggressively.`n"
+            $remediation += "- Consider running non-urgent jobs in lower-CI windows (carbon-aware scheduling).`n"
+          }
+          elseif ($Emissions -ge 50) {
+            $remediation += "- Tweak parallelism & memory limits; avoid over-provisioning.`n"
+            $remediation += "- Carbon-aware rerun may reduce O without code changes.`n"
+          }
+          else {
+            $remediation += "- No remediation needed.`n"
+          }
 
+          # ---------- Build PR report ----------
           $report = @"
           ## 🔎 APIM Validation Summary
           * Result: ${{ steps.validate.outputs.result }}
-
-          ## 🌱 Carbon Metrics Report
-          * Energy Consumed: $EnergyKWh kWh
-          * Estimated CO₂ Emissions: $Emissions g
-          * CPU Time: $CPUTimeSec sec | RAM: $RAMMB MB | GPU: $GPUName ($GPUStatus)
-          * Carbon Intensity: $CarbonIntensity gCO₂/kWh
-
+          
+          ## 🌱 Carbon Metrics Report (SCI operational)
+          * Energy (E): $EnergyKWh kWh
+          * Carbon Intensity (I): $CarbonIntensity gCO₂/kWh _(GB grid; index: $CIIndex)_
+          * Emissions (O = E × I): $Emissions g/run
+          * Source: $CISource
+          
           ### 📊 Business Impact
           * Projected Annual Impact: ~${AnnualImpact} kg CO₂ (10k runs/day)
           * Cost Estimate: £$CostEstimate/year
-          * Target: <10 g/run
-
+          * Target: <10 g/run  |  Warn ≥ 50 g  |  Fail ≥ 100 g
+          
           ### 🔧 Remediation Suggestions
           $remediation
           "@
 
+          # ---------- Expose outputs ----------
           "report<<EOF" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8
           $report | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
           "EOF" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
-          "emissions=$Emissions" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "emissions=$Emissions"  | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "energy_kwh=$EnergyKWh" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
       - name: Post Report to PR
         uses: peter-evans/create-or-update-comment@v3
