@@ -20,11 +20,8 @@
     "protocols": [
       "https"
     ],
-    
-    "subscriptionKeyParameterNames": {
-      "header": "Ocp-Apim-Subscription-Key",
-      "query": "subscription-key"
-    },
+    "serviceUrl": "https://#{{ alv1IntServiceUrlHost }}/ws/rest/DEFRA/v1/address",
+
     "subscriptionRequired": false
   }
 }
