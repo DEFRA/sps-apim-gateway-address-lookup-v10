@@ -11,12 +11,12 @@
       "url": "https://www.gov.uk/government/organisations/department-for-environment-food-rural-affairs"
     },
     "description": "The DEFRA Address Lookup REST API provides a method to search for a list of addresses  by Postal Code or UPRN (Unique Property Reference Number)",
-
+    "isCurrent": true,
     "license": {
       "name": "DEFRA API License Agreement",
       "url": "https://www.gov.uk/government/organisations/department-for-environment-food-rural-affairs/license/url"
     },
-    "displayName": "Address Lookup",
+    
     "protocols": [
       "https"
     ],
