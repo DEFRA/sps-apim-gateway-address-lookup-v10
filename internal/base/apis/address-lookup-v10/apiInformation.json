@@ -21,7 +21,10 @@
       "https"
     ],
     "serviceUrl": "https://#{{ alv1IntServiceUrlHost }}/ws/rest/DEFRA/v1/address",
-
-    "subscriptionRequired": false
+    "subscriptionKeyParameterNames": {
+      "header": "Ocp-Apim-Subscription-Key",
+      "query": "subscription-key"
+    },
+   
   }
 }
