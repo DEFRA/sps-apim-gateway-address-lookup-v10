@@ -37,14 +37,14 @@ SPS-APIM-GATEWAY-ADDRESS-LOOKUP-V10/
 
 This repository follows GOV.UK guidance on **open vs closed code**:
 
-- ✅ **Committed to Git**:
+- **Committed to Git**:
   - API metadata (`apiInformation.json`)
   - OpenAPI specification (`specification.yaml`)
   - APIM policy templates (`policy.xml`) with placeholders
   - Named value metadata (`namedValueInformation.json`) without actual secret values
   - Version set metadata (`versionSetInformation.json`)
 
-- ❌ **Not committed to Git**:
+- **Not committed to Git**:
   - Any real **secret values**, API keys, certificates, or connection strings
   - Environment-specific overrides (e.g., `parameters.local.json`)
   - Certificates (`.pfx`, `.pem`, `.key`) or `.env` files
