@@ -9,8 +9,6 @@ It follows the Shared Platform DevOps patterns used by the team:
 - **GitHub as source control** with **Azure DevOps Pipelines** as the deployment engine.
 - **Branching:** feature → `develop` → `master` (release) with automated deployments.
 - **Versioning:** use **tags**/releases (e.g. `v1.0.0`, `v10`).
-- **Selective deployments:** only changed API folders are deployed to speed up CI/CD.
-
 ---
 
 ## Repository Structure
