@@ -17,8 +17,10 @@
       "url": "https://www.gov.uk/government/organisations/department-for-environment-food-rural-affairs/license/url"
     },
     "displayName": "Address Lookup v10",
-
-    "serviceUrl": "https://#{{ alv1IntServiceUrlHost }}/ws/rest/DEFRA/v1/address",
+    "protocols": [
+      "https"
+    ],
+    
     "subscriptionKeyParameterNames": {
       "header": "Ocp-Apim-Subscription-Key",
       "query": "subscription-key"
