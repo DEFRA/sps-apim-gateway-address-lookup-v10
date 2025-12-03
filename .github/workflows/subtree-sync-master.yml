@@ -77,7 +77,14 @@ jobs:
           CHANGES=false
 
           # Loop through mapping
-          echo "${FOLDER_MAP}" | while IFS='=' read -r SRC TARGET_PREFIX; do
+          for mapping in ${FOLDER_MAP}; do
+            SRC="${mapping%%=*}"
+            TARGET_PREFIX="${mapping#*=}"
+
+            if [ -z "${SRC}" ] || [ -z "${TARGET_PREFIX}" ]; then
+              continue
+            fi
+
             echo "Processing subtree: SRC=${SRC}, TARGET=${TARGET_PREFIX}"
 
             if git ls-tree -r --name-only HEAD | grep -q "^${SRC}/"; then

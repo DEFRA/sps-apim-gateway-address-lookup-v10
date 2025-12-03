@@ -24,7 +24,6 @@ env:
   FOLDER_MAP: |
     internal/base/apis/address-lookup-v10=internal/base/apis/address-lookup-v10
     external/base/apis/address-lookup-v10=external/base/apis/address-lookup-v10
-
 jobs:
   sync:
     runs-on: ubuntu-latest
