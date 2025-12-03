@@ -9,8 +9,6 @@ It follows the Shared Platform DevOps patterns used by the team:
 - **GitHub as source control** with **Azure DevOps Pipelines** as the deployment engine.
 - **Branching:** feature → `develop` → `master` (release) with automated deployments.
 - **Versioning:** use **tags**/releases (e.g. `v1.0.0`, `v10`).
-- **Selective deployments:** only changed API folders are deployed to speed up CI/CD.
-
 ---
 
 ## Repository Structure
@@ -37,14 +35,14 @@ SPS-APIM-GATEWAY-ADDRESS-LOOKUP-V10/
 
 This repository follows GOV.UK guidance on **open vs closed code**:
 
-- ✅ **Committed to Git**:
+- **Committed to Git**:
   - API metadata (`apiInformation.json`)
   - OpenAPI specification (`specification.yaml`)
   - APIM policy templates (`policy.xml`) with placeholders
   - Named value metadata (`namedValueInformation.json`) without actual secret values
   - Version set metadata (`versionSetInformation.json`)
 
-- ❌ **Not committed to Git**:
+- **Not committed to Git**:
   - Any real **secret values**, API keys, certificates, or connection strings
   - Environment-specific overrides (e.g., `parameters.local.json`)
   - Certificates (`.pfx`, `.pem`, `.key`) or `.env` files
@@ -186,7 +184,7 @@ sequenceDiagram
 ## Contacts
 - **Maintainer:** Prathap Mathiyalagan  
 - **Manager:** David Wickett
-- **Development team:** GIO Shared platform - Integration team
+- **Development team:** GIO Shared platform - Integration team (ICC)
 
 ## License
 This repository uses the [Open Governmentnalarchives.gov.uk/doc/open-government-licence/version/3](https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/).
