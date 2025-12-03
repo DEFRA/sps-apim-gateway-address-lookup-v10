@@ -136,3 +136,25 @@ jobs:
             git branch -m "${PR_BRANCH}"
             git push origin "${PR_BRANCH}"
           }
+
+      - name: Generate GitHub Action Summary
+        run: |
+          {
+            echo "## Subtree Merge Summary"
+            echo ""
+            echo "**Central Repo:** ${CENTRAL_REPO}"
+            echo "**Base Branch:** ${BASE_BRANCH}"
+            echo "**Team Repo:** ${TEAM_REPO_URL}"
+            echo "**Team Branch:** ${TEAM_BRANCH}"
+            echo "**PR Branch:** ${PR_BRANCH:-Not created}"
+            echo ""
+            echo "### Folder Mapping"
+            echo '```'
+            echo "${FOLDER_MAP}"
+            echo '```'
+            echo ""
+            echo "**Timestamp:** $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+            echo "**Commit SHA:** ${GITHUB_SHA}"
+            echo ""
+            echo "✅ Merge completed. Check PR branch for details."
+          } >> $GITHUB_STEP_SUMMARY
