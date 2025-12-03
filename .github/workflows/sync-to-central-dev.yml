@@ -10,23 +10,20 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read  # pushing to central is done via SSH deploy key
+  contents: read
 
 env:
-  # --- Central repo & branch ---
   CENTRAL_REPO: DEFRA/sps-apim-gateway
   CENTRAL_BRANCH: develop
-
-  # --- Team repo settings ---
   TEAM_REMOTE_NAME: address-lookup-v10
   TEAM_REPO_URL: DEFRA/sps-apim-gateway-address-lookup-v10
   TEAM_BRANCH: develop
-
-  # --- Subtree prefixes ---
-  INTERNAL_PREFIX: internal/base/apis/address-lookup-v10
-  EXTERNAL_PREFIX: external/base/apis/address-lookup-v10
-
   REQUIRE_LINEAR_HISTORY: "false"
+
+  # Mapping (source → target)
+  FOLDER_MAP: |
+    internal/base/apis/address-lookup-v10=internal/base/apis/address-lookup-v10
+    external/base/apis/address-lookup-v10=external/base/apis/address-lookup-v10
 
 jobs:
   sync:
@@ -51,7 +48,7 @@ jobs:
           git config --global user.name "${GITHUB_ACTOR}"
           git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
 
-      - name: Clone central repo and sync internal/external folders
+      - name: Clone central repo and sync multiple folders
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -75,24 +72,23 @@ jobs:
             "https://x-access-token:${GITHUB_TOKEN}@github.com/${TEAM_REPO_URL}.git"
           git fetch --no-tags "${TEAM_REMOTE_NAME}" "${TEAM_BRANCH}"
 
-          echo "=== Check for internal/external folders ==="
-          FOLDERS=("internal" "external")
-          for FOLDER in "${FOLDERS[@]}"; do
-            if git ls-tree -r --name-only "refs/remotes/${TEAM_REMOTE_NAME}/${TEAM_BRANCH}" | grep -q "^${FOLDER}/"; then
-              echo "Folder '${FOLDER}' exists. Syncing..."
-              git checkout -B __team_branch__ "refs/remotes/${TEAM_REMOTE_NAME}/${TEAM_BRANCH}"
-              SPLIT_SHA=$(git subtree split -P "${FOLDER}")
+          echo "=== Sync multiple internal/external folders ==="
+          git checkout -B __team_branch__ "refs/remotes/${TEAM_REMOTE_NAME}/${TEAM_BRANCH}"
+
+          # Read mapping from env and loop
+          echo "${FOLDER_MAP}" | while IFS='=' read -r SRC TARGET_PREFIX; do
+            echo "Processing subtree: SRC=${SRC}, TARGET=${TARGET_PREFIX}"
+
+            if git ls-tree -r --name-only HEAD | grep -q "^${SRC}/"; then
+              SPLIT_SHA=$(git subtree split -P "${SRC}")
               git checkout "${CENTRAL_BRANCH}"
 
               if [ -z "${SPLIT_SHA}" ]; then
-                echo "ERROR: subtree split produced no commit for ${FOLDER}. Skipping..."
+                echo "ERROR: subtree split produced no commit for ${SRC}. Skipping..."
                 continue
               fi
 
-              TARGET_PREFIX=$([ "${FOLDER}" = "internal" ] && echo "${INTERNAL_PREFIX}" || echo "${EXTERNAL_PREFIX}")
-              echo "Target prefix: ${TARGET_PREFIX}"
-
-              CUSTOM_MESSAGE="subtree: sync ${FOLDER} | Source: ${TEAM_REMOTE_NAME}/${TEAM_BRANCH} | Timestamp: ${TIMESTAMP}"
+              CUSTOM_MESSAGE="subtree: sync ${SRC} → ${TARGET_PREFIX} | Source: ${TEAM_REMOTE_NAME}/${TEAM_BRANCH} | Timestamp: ${TIMESTAMP}"
 
               echo "=== Attempt subtree merge ==="
               set +e
@@ -121,7 +117,7 @@ jobs:
                 fi
               fi
             else
-              echo "Folder '${FOLDER}' not found. Skipping..."
+              echo "Source folder '${SRC}' not found. Skipping..."
             fi
           done
 
@@ -142,4 +138,4 @@ jobs:
               git fetch origin "${CENTRAL_BRANCH}"
               git merge --no-edit "origin/${CENTRAL_BRANCH}"
             done
-            fi
+          fi

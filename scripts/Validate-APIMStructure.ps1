@@ -25,7 +25,7 @@ function Resolve-File {
   return $null
 }
 
-# ✅ apiInformation.json strict validator
+# apiInformation.json strict validator
 function Test-ApiInformationFields {
     param($filePath)
     try {
@@ -64,7 +64,7 @@ function Test-ApiInformationFields {
     return $null
 }
 
-# ✅ productInformation.json strict validator
+# productInformation.json strict validator
 function Test-ProductInformationFields {
     param($filePath)
     try {
@@ -89,7 +89,7 @@ function Test-ProductInformationFields {
     return $null
 }
 
-# ✅ versionSetInformation.json strict validator
+# versionSetInformation.json strict validator
 function Test-VersionSetInformationFields {
     param($filePath)
     try {
@@ -114,7 +114,7 @@ function Test-VersionSetInformationFields {
     return $null
 }
 
-# ✅ namedValueInformation.json strict validator
+# namedValueInformation.json strict validator
 function Test-NamedValueFields {
     param($filePath)
     try {
@@ -145,7 +145,7 @@ function Test-NamedValueFields {
     return $null
 }
 
-# ✅ YAML validator
+# YAML validator
 function Test-YamlOpenAPI {
     param($filePath)
     try {
