@@ -138,3 +138,24 @@ jobs:
               git merge --no-edit "origin/${CENTRAL_BRANCH}"
             done
           fi
+
+      - name: Generate GitHub Action Summary
+        run: |
+          {
+            echo "## Subtree Sync Summary"
+            echo ""
+            echo "**Central Repo:** ${CENTRAL_REPO}"
+            echo "**Central Branch:** ${CENTRAL_BRANCH}"
+            echo "**Team Repo:** ${TEAM_REPO_URL}"
+            echo "**Team Branch:** ${TEAM_BRANCH}"
+            echo ""
+            echo "### Folder Mapping"
+            echo '```'
+            echo "${FOLDER_MAP}"
+            echo '```'
+            echo ""
+            echo "**Timestamp:** $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+            echo "**Commit SHA:** ${GITHUB_SHA}"
+            echo ""
+            echo "✅ Sync completed. Check commit history for details."
+          } >> $GITHUB_STEP_SUMMARY
