@@ -20,10 +20,12 @@ env:
   TEAM_REPO_URL: DEFRA/sps-apim-gateway-address-lookup-v10
   TEAM_BRANCH: master
 
-  INTERNAL_PREFIX: internal/dev/apis/address-lookup-v10
-  EXTERNAL_PREFIX: external/dev/apis/address-lookup-v10
-
   TEAM_WINS_ON_CONFLICT: "true"
+
+  # Top-level mapping (source → target)
+  FOLDER_MAP: |
+    internal/base/apis/address-lookup-v10=internal/base/apis/address-lookup-v10
+    external/base/apis/address-lookup-v10=external/base/apis/address-lookup-v10
 
 jobs:
   prepare-branch:
@@ -70,23 +72,24 @@ jobs:
             "https://x-access-token:${GITHUB_TOKEN}@github.com/${TEAM_REPO_URL}.git"
           git fetch "${TEAM_REMOTE_NAME}" "${TEAM_BRANCH}"
 
-          FOLDERS=("internal" "external")
+          git checkout -B __team_branch__ "refs/remotes/${TEAM_REMOTE_NAME}/${TEAM_BRANCH}"
+
           CHANGES=false
 
-          for FOLDER in "${FOLDERS[@]}"; do
-            if git ls-tree -r --name-only "refs/remotes/${TEAM_REMOTE_NAME}/${TEAM_BRANCH}" | grep -q "^${FOLDER}/"; then
-              echo "Folder '${FOLDER}' exists. Syncing..."
-              git checkout -B __team_branch__ "refs/remotes/${TEAM_REMOTE_NAME}/${TEAM_BRANCH}"
-              SPLIT_SHA=$(git subtree split -P "${FOLDER}")
+          # Loop through mapping
+          echo "${FOLDER_MAP}" | while IFS='=' read -r SRC TARGET_PREFIX; do
+            echo "Processing subtree: SRC=${SRC}, TARGET=${TARGET_PREFIX}"
+
+            if git ls-tree -r --name-only HEAD | grep -q "^${SRC}/"; then
+              SPLIT_SHA=$(git subtree split -P "${SRC}")
               git checkout "${BASE_BRANCH}"
 
               if [ -z "${SPLIT_SHA}" ]; then
-                echo "ERROR: subtree split produced no commit for ${FOLDER}. Skipping..."
+                echo "ERROR: subtree split produced no commit for ${SRC}. Skipping..."
                 continue
               fi
 
-              TARGET_PREFIX=$([ "${FOLDER}" = "internal" ] && echo "${INTERNAL_PREFIX}" || echo "${EXTERNAL_PREFIX}")
-              CUSTOM_MESSAGE="subtree: merge ${FOLDER} | Source: ${TEAM_REMOTE_NAME}/${TEAM_BRANCH} | Timestamp: ${TIMESTAMP}"
+              CUSTOM_MESSAGE="subtree: merge ${SRC} → ${TARGET_PREFIX} | Source: ${TEAM_REMOTE_NAME}/${TEAM_BRANCH} | Timestamp: ${TIMESTAMP}"
 
               if [ "${CHANGES}" = "false" ]; then
                 PR_BRANCH="pr-subtree/${TEAM_REMOTE_NAME}/$(date +%Y%m%d-%H%M%S)-${GITHUB_SHA::7}"
@@ -110,12 +113,12 @@ jobs:
 
               CHANGES=true
             else
-              echo "Folder '${FOLDER}' not found. Skipping..."
+              echo "Source folder '${SRC}' not found. Skipping..."
             fi
           done
 
           if [ "${CHANGES}" = "false" ]; then
-            echo "No internal or external folder found. Exiting."
+            echo "No mapped folders found. Exiting."
             exit 0
           fi
 
