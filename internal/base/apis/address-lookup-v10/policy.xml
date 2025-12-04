@@ -8,23 +8,7 @@
                 <rewrite-uri template="/uprn" copy-unmatched-params="true" />
             </when>
         </choose>
-		<validate-jwt header-name="Authorization" failed-validation-httpcode="401" failed-validation-error-message="Unauthorized. Access token is missing or invalid.">
-		<openid-config url="https://login.microsoftonline.com/{{COMMON_DEFRA_TENANTID}}/v2.0/.well-known/openid-configuration" />
-			<audiences>
-				<audience>api://{{ADDRESSLOOKUPV10_BACKEND_SCOPEID}}</audience>
-			</audiences>
-			<issuers>
-				<issuer>https://sts.windows.net/{{COMMON_DEFRA_TENANTID}}/</issuer>
-			</issuers>
-			<required-claims>
-				<claim name="appid" match="any">
-					<value>{{MMO_FRONTEND_CLIENTID}}</value>
-					<value>{{CPR_FRONTEND_CLIENTID}}</value>
-					<value>{{CITIES_FRONTEND_CLIENTID}}</value>
-					<value>{{RSP_FRONTEND_CLIENTID}}</value>
-				</claim>
-			</required-claims>
-		</validate-jwt>
+		
 		<set-header name="Authorization" exists-action="delete" />
 		<authentication-certificate certificate-id="#{{ alv1IntMCSCertificateName }}" />
 	</inbound>
