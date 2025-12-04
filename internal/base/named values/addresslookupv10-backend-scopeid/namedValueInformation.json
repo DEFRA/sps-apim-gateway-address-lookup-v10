@@ -1,6 +1,6 @@
 {
   "properties": {
-    "displayName": "ADDRESSLOOKUPV10_BACKEND_SCOPEID",
+    "displayName": "ADDRESSLOOKUPV10_BACKEND_scopeid",
     "secret": true,
     "tags": [],
     "value": "#{{ alBackEndAppIdInt }}"
