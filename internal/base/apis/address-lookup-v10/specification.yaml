@@ -1,6 +1,6 @@
 openapi: 3.0.1
-info
-  title Address Lookup
+info:
+  title: Address Lookup
   description: The DEFRA Address Lookup REST API provides a method to search for a list of addresses  by Postal Code or UPRN (Unique Property Reference Number)
   contact:
     name: "Department for Environment, Food and Rural Affairs - GOV UK"
