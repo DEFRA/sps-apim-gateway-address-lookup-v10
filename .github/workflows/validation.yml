@@ -1,4 +1,3 @@
-
 name: Validate APIM Structure & Carbon Metrics
 
 on:
@@ -34,14 +33,12 @@ jobs:
           $structExit    = $LASTEXITCODE
           $structRes     = if ($structExit -eq 0) { 'Passed' } else { 'Failed' }
 
-          # 1) Convert to single string with newlines
+          # Convert to single string and normalize newlines to LF
           $structOutText = ($structOutObjs | Out-String)
-
-          # 2) Normalize newlines to LF to ensure Markdown tables render
           $structOutText = $structOutText -replace "`r`n", "`n"
           $structOutText = $structOutText -replace "`r",   "`n"
 
-          # Emit step outputs (reliable syntax)
+          # Emit step outputs
           echo "result=$structRes"      >> $env:GITHUB_OUTPUT
           echo "exit_code=$structExit"  >> $env:GITHUB_OUTPUT
 
@@ -70,6 +67,7 @@ jobs:
           $policyExit    = $LASTEXITCODE
           $policyRes     = if ($policyExit -eq 0) { 'Passed' } else { 'Failed' }
 
+          # Convert to single string and normalize newlines to LF
           $policyOutText = ($policyOutObjs | Out-String)
           $policyOutText = $policyOutText -replace "`r`n", "`n"
           $policyOutText = $policyOutText -replace "`r",   "`n"
@@ -93,7 +91,7 @@ jobs:
           $structRes   = "${{ steps.validate_structure.outputs.result }}"
           $policyRes   = "${{ steps.validate_policies.outputs.result }}"
 
-          # Pull raw (normalized) console outputs
+          # Pull normalized console outputs (multiline)
           $structLog = @'
           ${{ steps.validate_structure.outputs.console }}
           '@
@@ -101,7 +99,7 @@ jobs:
           ${{ steps.validate_policies.outputs.console }}
           '@
 
-                    # OPTIONAL: strip ANSI color codes if present
+                    # Optional: strip ANSI color codes if present
                     $ansi = [regex]'\x1B\[[0-9;]*[A-Za-z]'
                     $structLog = $ansi.Replace($structLog, '')
                     $policyLog = $ansi.Replace($policyLog, '')
@@ -275,7 +273,8 @@ jobs:
 
       # Final gate: fail the job if any validation failed (after writing summaries)
       - name: Fail if any validation failed
-        if: ${{        if: ${{ steps.aggregate.outputs.final_exit != '0' }}
+        if: ${{ steps.aggregate.outputs.final_exit != '0' }}
         shell: pwsh
         run: |
           Write-Host "One or more validations failed. final_exit=${{ steps.aggregate.outputs.final_exit }}"
+          exit 1
