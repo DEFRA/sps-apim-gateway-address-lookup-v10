@@ -84,37 +84,37 @@ jobs:
 
           # Get raw console outputs (already emitted via GITHUB_OUTPUT)
           $structLog = @'
-${{ steps.validate_structure.outputs.console }}
-'@
-          $policyLog = @'
-${{ steps.validate_policies.outputs.console }}
-'@
+          ${{ steps.validate_structure.outputs.console }}
+          '@
+                    $policyLog = @'
+          ${{ steps.validate_policies.outputs.console }}
+          '@
 
           $finalExit = if (($structCode -ne 0) -or ($policyCode -ne 0)) { 1 } else { 0 }
 
           # IMPORTANT: Here-string must open at column 0 and close at column 0
           $summaryMd = @"
-# 🔎 Validation Results
+          # 🔎 Validation Results
 
-* **Structure**: $structRes (exit=$structCode)
-* **Policies**:  $policyRes (exit=$policyCode)
+          * **Structure**: $structRes (exit=$structCode)
+          * **Policies**:  $policyRes (exit=$policyCode)
 
-<details>
-<summary><strong>📁 Structure validation – detailed output</strong></summary>
+          <details>
+          <summary><strong>📁 Structure validation – detailed output</strong></summary>
 
-```text
-$structLog
-```
-</details>
+          ```text
+          $structLog
+          ```
+          </details>
 
-<details>
-<summary><strong>🛡️ Policy rules validation – detailed output</strong></summary>
+          <details>
+          <summary><strong>🛡️ Policy rules validation – detailed output</strong></summary>
 
-```text
-$policyLog
-```
-</details>
-"@
+          ```text
+          $policyLog
+          ```
+          </details>
+          "@
 
           # Write to the Actions "Summary" tab (single write)
           $summaryMd | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
