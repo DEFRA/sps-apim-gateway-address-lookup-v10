@@ -10,6 +10,7 @@ jobs:
     runs-on: windows-latest
 
     steps:
+      # Ensure full history (needed for some validations or logs)
       - name: Checkout Repository (full history)
         uses: actions/checkout@v3
         with:
@@ -18,68 +19,114 @@ jobs:
       # ---------------------------
       # 1) APIM Structure Validator
       # ---------------------------
-      - name: Run APIM Structure validation
+      - name: Run APIM Structure validation (capture output)
         id: validate_structure
         shell: pwsh
         run: |
-          pwsh -File "${{ github.workspace }}/scripts/Validate-APIMStructure.ps1" `
-            -Journey both `
-            -Environment base `
-            -FailOnError `
-            -EnforceUpperSnakeCaseDisplayName
+          # Run and capture stdout/stderr into a single stream
+          $cmd = {
+            pwsh -File "${{ github.workspace }}/scripts/Validate-APIMStructure.ps1" `
+              -Journey both `
+              -Environment base `
+              -FailOnError `
+              -EnforceUpperSnakeCaseDisplayName
+          }
+          $structOut = & $cmd *>&1
+          $structExit = $LASTEXITCODE
 
-          $code  = $LASTEXITCODE
-          $result = if ($code -eq 0) { '✔️ Passed' } else { '❌ Failed' }
-          "result=$result"  | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-          "exit_code=$code" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          # Expose status + exit code
+          $structResult = if ($structExit -eq 0) { '✔️ Passed' } else { '❌ Failed' }
+          "result=$structResult"  | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "exit_code=$structExit" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
-      # -------------------------------
-      # 2) APIM Policy Rules Validator 
-      # -------------------------------
-      - name: Run APIM Policy Rules validation
+          # Expose the full console text (multiline output)
+          "console<<EOF" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8
+          $structOut | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "EOF"        | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      # -------------------------------------
+      # 2) APIM Policy Rules Validator (NEW)
+      # -------------------------------------
+      - name: Run APIM Policy Rules validation (capture output)
         id: validate_policies
         shell: pwsh
         run: |
-          # Run your new policy rules validator
-          pwsh -File "${{ github.workspace }}/scripts/Validate-APIMPolicyRules.ps1" `
-            -RootPath . `
-            -Journey both `
-            -Environments base `
-            -ApiName * `
-            -FailOnError `
-            -SuppressQuoteLint
+          # Run your Policy Rules validator and capture output
+          $cmd = {
+            pwsh -File "${{ github.workspace }}/scripts/Validate-APIMPolicyRules.ps1" `
+              -RootPath . `
+              -Journey both `
+              -Environments base,dev,pre,tst `
+              -ApiName * `
+              -FailOnError `
+              -SuppressQuoteLint
+          }
+          $policyOut  = & $cmd *>&1
+          $policyExit = $LASTEXITCODE
 
-          $code  = $LASTEXITCODE
-          $result = if ($code -eq 0) { '✔️ Passed' } else { '❌ Failed' }
-          "result=$result"  | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-          "exit_code=$code" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          $policyResult = if ($policyExit -eq 0) { '✔️ Passed' } else { '❌ Failed' }
+          "result=$policyResult"  | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "exit_code=$policyExit" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
-      # --- NEW: aggregate both validators into a single pass/fail (without printing verbose error record)
-      - name: Aggregate validation results
+          "console<<EOF" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8
+          $policyOut | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "EOF"        | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      # ---------------------------------------------------
+      # 3) Aggregate + Write Detailed Summary (Actions UI)
+      # ---------------------------------------------------
+      - name: Aggregate validation results and write Job Summary
         id: aggregate
         shell: pwsh
         run: |
-          $structCode = [int]"${{ steps.validate_structure.outputs.exit_code }}"
-          $policyCode = [int]"${{ steps.validate_policies.outputs.exit_code }}"
-          $finalCode  = if (($structCode -ne 0) -or ($policyCode -ne 0)) { 1 } else { 0 }
+          $structCode  = [int]"${{ steps.validate_structure.outputs.exit_code }}"
+          $policyCode  = [int]"${{ steps.validate_policies.outputs.exit_code }}"
+          $structRes   = "${{ steps.validate_structure.outputs.result }}"
+          $policyRes   = "${{ steps.validate_policies.outputs.result }}"
+          $structLog   = @'
+          ${{ steps.validate_structure.outputs.console }}
+          '@
+                    $policyLog   = @'
+          ${{ steps.validate_policies.outputs.console }}
+          '@
 
-          $summary = @()
-          $summary += "### Validation Results"
-          $summary += ""
-          $summary += "* Structure:  ${{ steps.validate_structure.outputs.result }} (exit=$structCode)"
-          $summary += "* Policies:   ${{ steps.validate_policies.outputs.result }} (exit=$policyCode)"
-          $summaryText = $summary -join "`n"
+          $finalExit = if (($structCode -ne 0) -or ($policyCode -ne 0)) { 1 } else { 0 }
 
-          # Expose outputs for downstream steps
-          "final_exit=$finalCode" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-          "summary<<EOF" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8
-          $summaryText   | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-          "EOF"          | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          # --- Build a rich Markdown report for the Actions Summary tab ---
+          $md = @()
+          $md += "# 🔎 Validation Results"
+          $md += ""
+          $md += "* **Structure**: $structRes (exit=$structCode)"
+          $md += "* **Policies**:  $policyRes (exit=$policyCode)"
+          $md += ""
+          $md += "<details>"
+          $md += "<summary><strong>📁 Structure validation – detailed output</strong></summary>"
+          $md += ""
+          $md += "```text"
+          $md += $structLog.TrimEnd()
+          $md += "```"
+          $md += "</details>"
+          $md += ""
+          $md += "<details>"
+          $md += "<summary><strong>🛡️ Policy rules validation – detailed output</strong></summary>"
+          $md += ""
+          $md += "```text"
+          $md += $policyLog.TrimEnd()
+          $md += "```"
+          $md += "</details>"
+          $md += ""
 
-          # Append to job summary
-          $summaryText | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          # Write to the Actions "Summary" tab
+          $md -join "`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
 
-      # --- Carbon intensity fetch (kept as-is) ---
+          # Expose a compact one-liner summary for PR comment
+          $compact = "Structure: $structRes (exit=$structCode) | Policies: $policyRes (exit=$policyCode)"
+          "compact=$compact" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "final_exit=$finalExit" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      # -----------------------------
+      # 4) Carbon Intensity (as-is)
+      # -----------------------------
       - name: Fetch GB Grid Carbon Intensity (now)
         id: ci
         shell: pwsh
@@ -128,7 +175,7 @@ jobs:
           # ---------- SCI operational term: O = E × I ----------
           $Emissions = [math]::Round($EnergyKWh * $CarbonIntensity, 2)   # g CO2 per run
 
-          # ---------- Business impact (illustrative calc; clarify assumptions) ----------
+          # ---------- Business impact (illustrative calc) ----------
           $AnnualImpact = [math]::Round(($Emissions * 10000 * 365) / 1000, 2)   # kg CO2 (10k runs/day)
           $CostEstimate = [math]::Round($EnergyKWh * 0.15, 4)                   # £ assuming £0.15/kWh
 
@@ -149,7 +196,7 @@ jobs:
 
           # ---------- Build PR report ----------
           $report = @"
-          ## 🔎 APIM Validation Summary
+          ## 🔎 Validation Summary (executive)
           * Structure:  ${{ steps.validate_structure.outputs.result }} (exit=${{ steps.validate_structure.outputs.exit_code }})
           * Policies:   ${{ steps.validate_policies.outputs.result }} (exit=${{ steps.validate_policies.outputs.exit_code }})
 
@@ -168,7 +215,7 @@ jobs:
           $remediation
           "@
 
-          # ---------- Expose outputs ----------
+          # Expose outputs
           "report<<EOF" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8
           $report | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
           "EOF" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
@@ -176,6 +223,9 @@ jobs:
           "emissions=$Emissions"  | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
           "energy_kwh=$EnergyKWh" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
+      # --------------------------------------------
+      # 5) Post report to PR (executive + carbon)
+      # --------------------------------------------
       - name: Post Report to PR
         if: ${{ github.event_name == 'pull_request' }}
         uses: peter-evans/create-or-update-comment@v3
@@ -183,11 +233,30 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           issue-number: ${{ github.event.pull_request.number }}
           body: |
-            ${{ steps.aggregate.outputs.summary }}
+            # 🔎 Validation Results (executive)
+            * **Structure**:  ${{ steps.validate_structure.outputs.result }} (exit=${{ steps.validate_structure.outputs.exit_code }})
+            * **Policies**:   ${{ steps.validate_policies.outputs.result }} (exit=${{ steps.validate_policies.outputs.exit_code }})
+
+            <details>
+            <summary><strong>📁 Structure validation – details</strong></summary>
+
+            ```text
+            ${{ steps.validate_structure.outputs.console }}
+            ```
+            </details>
+
+            <details>
+            <summary><strong>🛡️ Policy rules validation – details</strong></summary>
+
+            ```text
+            ${{ steps.validate_policies.outputs.console }}
+            ```
+            </details>
 
             ---
             ${{ steps.carbon.outputs.report }}
 
+      # Optional label for sustainability awareness
       - name: Add sustainability-warning label
         if: ${{ steps.carbon.outputs.emissions > 50 && github.event_name == 'pull_request' }}
         uses: actions-ecosystem/action-add-labels@v1
@@ -195,10 +264,9 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           labels: sustainability-warning
 
-      # Final gate: fail the job if either validator failed
+      # Final gate: fail the job if any validation failed (after writing summaries)
       - name: Fail if any validation failed
         if: ${{ steps.aggregate.outputs.final_exit != '0' }}
         shell: pwsh
         run: |
           Write-Host "One or more validations failed. final_exit=${{ steps.aggregate.outputs.final_exit }}"
-          exit 1
