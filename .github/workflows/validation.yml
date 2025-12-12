@@ -1,3 +1,4 @@
+
 name: Validate APIM Structure & Carbon Metrics
 
 on:
@@ -21,7 +22,7 @@ jobs:
         id: validate_structure
         shell: pwsh
         run: |
-          # Run and capture stdout/stderr into a single stream
+          # Run and capture all streams as objects (array)
           $cmd = {
             pwsh -File "${{ github.workspace }}/scripts/Validate-APIMStructure.ps1" `
               -Journey both `
@@ -29,17 +30,24 @@ jobs:
               -FailOnError `
               -EnforceUpperSnakeCaseDisplayName
           }
-          $structOut  = & $cmd *>&1
-          $structExit = $LASTEXITCODE
-          $structRes  = if ($structExit -eq 0) { 'Passed' } else { 'Failed' }
+          $structOutObjs = & $cmd *>&1
+          $structExit    = $LASTEXITCODE
+          $structRes     = if ($structExit -eq 0) { 'Passed' } else { 'Failed' }
+
+          # 1) Convert to single string with newlines
+          $structOutText = ($structOutObjs | Out-String)
+
+          # 2) Normalize newlines to LF to ensure Markdown tables render
+          $structOutText = $structOutText -replace "`r`n", "`n"
+          $structOutText = $structOutText -replace "`r",   "`n"
 
           # Emit step outputs (reliable syntax)
           echo "result=$structRes"      >> $env:GITHUB_OUTPUT
           echo "exit_code=$structExit"  >> $env:GITHUB_OUTPUT
 
-          # Multiline console text
+          # Multiline console text (delimiter block)
           echo "console<<STRUCT_EOF" >> $env:GITHUB_OUTPUT
-          echo "$structOut"          >> $env:GITHUB_OUTPUT
+          echo "$structOutText"      >> $env:GITHUB_OUTPUT
           echo "STRUCT_EOF"          >> $env:GITHUB_OUTPUT
 
       # -------------------------------------
@@ -58,15 +66,19 @@ jobs:
               -FailOnError `
               -SuppressQuoteLint
           }
-          $policyOut  = & $cmd *>&1
-          $policyExit = $LASTEXITCODE
-          $policyRes  = if ($policyExit -eq 0) { 'Passed' } else { 'Failed' }
+          $policyOutObjs = & $cmd *>&1
+          $policyExit    = $LASTEXITCODE
+          $policyRes     = if ($policyExit -eq 0) { 'Passed' } else { 'Failed' }
+
+          $policyOutText = ($policyOutObjs | Out-String)
+          $policyOutText = $policyOutText -replace "`r`n", "`n"
+          $policyOutText = $policyOutText -replace "`r",   "`n"
 
           echo "result=$policyRes"      >> $env:GITHUB_OUTPUT
           echo "exit_code=$policyExit"  >> $env:GITHUB_OUTPUT
 
           echo "console<<POLICY_EOF" >> $env:GITHUB_OUTPUT
-          echo "$policyOut"          >> $env:GITHUB_OUTPUT
+          echo "$policyOutText"      >> $env:GITHUB_OUTPUT
           echo "POLICY_EOF"          >> $env:GITHUB_OUTPUT
 
       # ---------------------------------------------------
@@ -80,16 +92,23 @@ jobs:
           $policyCode  = [int]"${{ steps.validate_policies.outputs.exit_code }}"
           $structRes   = "${{ steps.validate_structure.outputs.result }}"
           $policyRes   = "${{ steps.validate_policies.outputs.result }}"
-          $structLog   = @'
+
+          # Pull raw (normalized) console outputs
+          $structLog = @'
           ${{ steps.validate_structure.outputs.console }}
           '@
-                    $policyLog   = @'
+                    $policyLog = @'
           ${{ steps.validate_policies.outputs.console }}
           '@
 
+                    # OPTIONAL: strip ANSI color codes if present
+                    $ansi = [regex]'\x1B\[[0-9;]*[A-Za-z]'
+                    $structLog = $ansi.Replace($structLog, '')
+                    $policyLog = $ansi.Replace($policyLog, '')
+
                     $finalExit = if (($structCode -ne 0) -or ($policyCode -ne 0)) { 1 } else { 0 }
 
-                    # Single here-string for the Actions Summary panel (no code fences)
+                    # Build Actions Summary (NO code fences so Markdown tables render)
                     $summaryMd = @'
           # Validation Results
 
@@ -141,15 +160,15 @@ jobs:
             $index = $resp.data[0].intensity.index
             if (-not $index) { $index = 'unknown' }
 
-            echo "ci_now=$ci"      >> $env:GITHUB_OUTPUT
-            echo "ci_index=$index" >> $env:GITHUB_OUTPUT
+            echo "ci_now=$ci"                                       >> $env:GITHUB_OUTPUT
+            echo "ci_index=$index"                                  >> $env:GITHUB_OUTPUT
             echo "ci_source=https://api.carbonintensity.org.uk/intensity/$now" >> $env:GITHUB_OUTPUT
           }
           catch {
             # Graceful fallback
-            echo "ci_now=475"                       >> $env:GITHUB_OUTPUT
-            echo "ci_index=fallback"                >> $env:GITHUB_OUTPUT
-            echo "ci_source=(fallback default 475 gCO2/kWh)" >> $env:GITHUB_OUTPUT
+            echo "ci_now=475"                                       >> $env:GITHUB_OUTPUT
+            echo "ci_index=fallback"                                >> $env:GITHUB_OUTPUT
+            echo "ci_source=(fallback default 475 gCO2/kWh)"        >> $env:GITHUB_OUTPUT
             Write-Host "::warning::Carbon Intensity API unavailable; using default 475 gCO2/kWh."
           }
 
@@ -256,8 +275,7 @@ jobs:
 
       # Final gate: fail the job if any validation failed (after writing summaries)
       - name: Fail if any validation failed
-        if: ${{ steps.aggregate.outputs.final_exit != '0' }}
+        if: ${{        if: ${{ steps.aggregate.outputs.final_exit != '0' }}
         shell: pwsh
         run: |
           Write-Host "One or more validations failed. final_exit=${{ steps.aggregate.outputs.final_exit }}"
-          exit 1
