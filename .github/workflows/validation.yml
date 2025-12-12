@@ -89,7 +89,7 @@ jobs:
 
                     $finalExit = if (($structCode -ne 0) -or ($policyCode -ne 0)) { 1 } else { 0 }
 
-                    # Single here-string for the Actions Summary panel
+                    # Single here-string for the Actions Summary panel (no code fences)
                     $summaryMd = @'
           # Validation Results
 
@@ -99,17 +99,13 @@ jobs:
           <details>
           <summary><strong>Structure validation – detailed output</strong></summary>
 
-          ```text
           {STRUCT_LOG}
-          ```
           </details>
 
           <details>
           <summary><strong>Policy rules validation – detailed output</strong></summary>
 
-          ```text
           {POLICY_LOG}
-          ```
           </details>
           '@
 
@@ -239,17 +235,13 @@ jobs:
             <details>
             <summary><strong>📁 Structure validation – details</strong></summary>
 
-            ```text
             ${{ steps.validate_structure.outputs.console }}
-            ```
             </details>
 
             <details>
             <summary><strong>🛡️ Policy rules validation – details</strong></summary>
 
-            ```text
             ${{ steps.validate_policies.outputs.console }}
-            ```
             </details>
 
             ---
