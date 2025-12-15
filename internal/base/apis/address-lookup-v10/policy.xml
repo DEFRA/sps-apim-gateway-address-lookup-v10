@@ -1,5 +1,5 @@
 <policies>
-	<!-- Policy with updated App Reg names in APIOps -->
+	<!-- Policy with updated App Reg names in APIOps Edit by Divya-->
 	<inbound>
 		<base />
 		<rate-limit calls="300" renewal-period="60" />
