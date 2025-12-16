@@ -87,7 +87,7 @@ jobs:
                 continue
               fi
 
-              CUSTOM_MESSAGE="subtree: sync ${SRC} → ${TARGET_PREFIX} | Source: ${TEAM_REMOTE_NAME}/${TEAM_BRANCH} | Timestamp: ${TIMESTAMP}"
+              CUSTOM_MESSAGE="subtree: sync ${SRC} → ${TARGET_PREFIX} | api: ${TEAM_REMOTE_NAME} | Timestamp: ${TIMESTAMP}"
 
               echo "=== Attempt subtree merge ==="
               set +e
