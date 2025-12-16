@@ -96,7 +96,7 @@ jobs:
                 continue
               fi
 
-              CUSTOM_MESSAGE="subtree: merge ${SRC} → ${TARGET_PREFIX} | Source: ${TEAM_REMOTE_NAME}/${TEAM_BRANCH} | Timestamp: ${TIMESTAMP}"
+              CUSTOM_MESSAGE="subtree: merge ${SRC} → ${TARGET_PREFIX} | Source: ${TEAM_REMOTE_NAME}/${TEAM_BRANCH} | api: ${TEAM_REMOTE_NAME} |Timestamp: ${TIMESTAMP}"
 
               if [ "${CHANGES}" = "false" ]; then
                 PR_BRANCH="pr-subtree/${TEAM_REMOTE_NAME}/$(date +%Y%m%d-%H%M%S)-${GITHUB_SHA::7}"
