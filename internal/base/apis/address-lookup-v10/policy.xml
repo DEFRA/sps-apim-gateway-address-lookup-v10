@@ -9,7 +9,7 @@
             </when>
         </choose>
 		<validate-jwt header-name="Authorization" failed-validation-httpcode="401" failed-validation-error-message="Unauthorized. Access token is missing or invalid.">
-		<openid-config url="https://login.microsoftonline.com/{{COMMON_DEFRA_TENANTID}}/v2.0/.well-known/openid-configuration" />
+		<openid-config url="" />
 			<audiences>
 				<audience>api://{{ADDRESSLOOKUPV10_BACKEND_SCOPEID}}</audience>
 			</audiences>
