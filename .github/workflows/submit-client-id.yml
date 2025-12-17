@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       env:
-        description: "Environment (for audit/tracking only)"
+        description: "Environment (for audit/tracking)"
         type: choice
         options: [dev, test, prod]
         required: true
@@ -25,16 +25,20 @@ jobs:
       - name: Mask sensitive value in logs
         run: echo "::add-mask::${{ github.event.inputs.value }}"
 
-      - name: Validate inputs
+      - name: Basic input validation
         uses: actions/github-script@v7
+        env:
+          ENV:   ${{ github.event.inputs.env }}
+          NAME:  ${{ github.event.inputs.name }}
+          VALUE: ${{ github.event.inputs.value }}
         with:
           script: |
-            const env = core.getInput('env');
-            const name = core.getInput('name');
-            const value = core.getInput('value');
+            const env   = (process.env.ENV   || '').trim();
+            const name  = (process.env.NAME  || '').trim();
+            const value = (process.env.VALUE || '').trim();
 
-            const isEnv  = e => ['dev','test','prod'].includes((e||'').toLowerCase());
-            const isName = s => /^[A-Za-z0-9_.:-]{3,128}$/.test(s||'');
+            const isEnv  = e => ['dev','test','prod'].includes(e.toLowerCase());
+            const isName = s => /^[A-Za-z0-9_.:-]{3,128}$/.test(s);
 
             if (!isEnv(env))  core.setFailed('Invalid env (dev|test|prod)');
             if (!isName(name)) core.setFailed('Invalid name (allowed A-Za-z0-9_.:-, 3-128 chars)');
@@ -50,6 +54,10 @@ jobs:
 
       - name: Dispatch event to DEFRA/sps-apim-gateway (private)
         uses: actions/github-script@v7
+        env:
+          ENV:   ${{ github.event.inputs.env }}
+          NAME:  ${{ github.event.inputs.name }}
+          VALUE: ${{ github.event.inputs.value }}
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           script: |
@@ -58,12 +66,13 @@ jobs:
               repo:  'sps-apim-gateway',
               event_type: 'submit-client-id',
               client_payload: {
-                env:   core.getInput('env'),
-                name:  core.getInput('name'),
-                value: core.getInput('value'),
+                env:   (process.env.ENV   || '').trim(),
+                name:  (process.env.NAME  || '').trim(),
+                value: (process.env.VALUE || '').trim(),
                 sourceRepo: `${context.repo.owner}/${context.repo.repo}`,
                 sourceRunId: context.runId,
                 sourceWorkflow: context.workflow
               }
             });
+            core.info('Submitted payload to private repo (value not printed
 
