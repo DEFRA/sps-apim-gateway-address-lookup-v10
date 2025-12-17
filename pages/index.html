@@ -1,0 +1,76 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>Submit Client ID</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; }
+    form { max-width: 600px; }
+    label { display:block; margin-top:1rem; }
+    input, select, textarea { width:100%; padding:0.5rem; }
+    button { margin-top:1rem; padding:0.6rem 1rem; }
+  </style>
+</head>
+<body>
+  <h1>Submit Client ID</h1>
+  <form id="kvForm">
+    <label>Client ID
+      <input id="clientId" name="clientId" required 
+             pattern="[0-9a-fA-F-]{36}" 
+             placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+    </label>
+    <label>Environment
+      <select id="env" name="env" required>
+        <option value="dev">dev</option>
+        <option value="test">test</option>
+        <option value="prod">prod</option>
+      </select>
+    </label>
+    <label>Owner (company or app name)
+      <input id="owner" name="owner" required>
+    </label>
+    <label>Team/Project (optional)
+      <input id="team" name="team">
+    </label>
+    <label>Requester Email
+      <input id="requestedBy" name="requestedBy" type="email" required>
+    </label>
+    <label>Description (optional)
+      <textarea id="description" name="description" rows="3"></textarea>
+    </label>
+    <button type="submit">Submit</button>
+    <p id="msg"></p>
+  </form>
+  <script>
+    const apiUrl = "https://YOUR-BACKEND.example.com/submit"; // backend URL
+
+    document.getElementById('kvForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const payload = {
+        clientId: document.getElementById('clientId').value.trim(),
+        env: document.getElementById('env').value,
+        owner: document.getElementById('owner').value.trim(),
+        team: document.getElementById('team').value.trim(),
+        requestedBy: document.getElementById('requestedBy').value.trim(),
+        description: document.getElementById('description').value.trim()
+      };
+      const msg = document.getElementById('msg');
+      try {
+               const res = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        msg.textContent = `Submitted: ${data.commitSha || 'ok'}`;
+        msg.style.color = 'green';
+      } catch (err) {
+        msg.textContent = `Error: ${err.message}`;
+        msg.style.color = 'red';
+      }
+    });
+  </script>
+</body>
