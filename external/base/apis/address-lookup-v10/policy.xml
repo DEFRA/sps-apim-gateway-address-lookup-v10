@@ -3,7 +3,6 @@
 		<!-- Policy with updated App Reg names in APIOps. This is updated on 01/05/2025 part2-->
 		<base />
 		<rate-limit calls="300" renewal-period="60" />
-		<trace />
 		<choose>
             <when condition="@(context.Request.Url.Query.GetValueOrDefault("uprn","").Length>0)">
                 <rewrite-uri template="/uprn" copy-unmatched-params="true" />
