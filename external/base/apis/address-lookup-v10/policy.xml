@@ -4,7 +4,7 @@
 		<base />
 		<rate-limit calls="300" renewal-period="60" />
 		<choose>
-            <when condition="(context.Request.Url.Query.GetValueOrDefault("uprn","").Length>0)">
+            <when condition="@(context.Request.Url.Query.GetValueOrDefault("uprn","").Length>0)">
                 <rewrite-uri template="/uprn" copy-unmatched-params="true" />
             </when>
         </choose>
