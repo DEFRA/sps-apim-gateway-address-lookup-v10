@@ -1,8 +1,0 @@
-{
-  "properties": {
-    "displayName": "Vehicle Licensing API",
-    "description": "Provides licensing endpoints.",
-    "state": "published",
-    "subscriptionRequired": false
-  }
-}
