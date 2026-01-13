@@ -47,9 +47,6 @@ jobs:
           -TemplatesRoot "${{ github.event.inputs.templatesRoot }}"
           -Environment "${{ github.event.inputs.environment }}"
           -MaterializeTemplateFolders
-          -InPlace
-          ${{ github.event.inputs.backup == 'true' && '-BackupBeforeWrite' || '' }}
-          ${{ github.event.inputs.diagnostics == 'true' && '-Diagnostics -DiagDumpChars 200 -DiagSaveSamples' || '' }}
 
       - name: Commit & push changes
         shell: bash
@@ -67,4 +64,3 @@ jobs:
           ENV="${{ github.event.inputs.environment }}"
           git commit -m "APIM Self-Serve: materialize & in-place token mapping (env=${ENV}) [CI]"
           git push origin HEAD:${{ github.ref_name }}
-          
