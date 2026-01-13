@@ -285,9 +285,11 @@ function Replace-Tokens(
 # -----------------------------------------------------------------------------
 # Template path resolver (API_NAME-aware) with namedValues fallbacks
 # -----------------------------------------------------------------------------
+
 function Tpl([string]$logical){
   $mappingObj = $script:mappingObj
-  # 1) If mapping has a path, use it
+
+  # 1) Use mapping path if present
   if($mappingObj.templates.PSObject.Properties.Name -contains $logical){
     $rel = [string]$mappingObj.templates.$logical
     $relReplaced = $rel -replace 'API_NAME',$script:apiName
@@ -296,16 +298,21 @@ function Tpl([string]$logical){
     if(Test-Path -LiteralPath $fullReplaced){ return $fullReplaced }
     elseif(Test-Path -LiteralPath $fullLiteral){ return $fullLiteral }
   }
-  # 2) Known fallbacks (in case mapping.json doesn't include these)
+
+  # 2) Fallbacks for named values
   switch ($logical) {
     'namedValueBackendInformation.json'  {
-      $p = Join-Path $TemplatesRoot ("namedValues/{0}-backend-scopeid/namedValueInformation.json" -f $script:apiName); if(Test-Path $p){ return $p }
+      $p = Join-Path $TemplatesRoot ("namedValues/{0}-backend-scopeid/namedValueInformation.json" -f $script:apiName)
+      if(Test-Path $p){ return $p }
     }
     'namedValueFrontendInformation.json' {
-      $p = Join-Path $TemplatesRoot "namedValues/consuming-frontend-clientid/namedValueInformation.json"; if(Test-Path $p){ return $p }
+      $p = Join-Path $TemplatesRoot "namedValues/consuming-frontend-clientid/namedValueInformation.json"
+      if(Test-Path $p){ return $p }
     }
   }
-  throw "Template '$logical' not found (tried mapping + fallbacks)."
+
+  # If not found, return $null (callers will skip)
+  return $null
 }
 
 # -----------------------------------------------------------------------------
