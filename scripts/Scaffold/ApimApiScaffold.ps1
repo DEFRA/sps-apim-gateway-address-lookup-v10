@@ -9,7 +9,7 @@
      * ONLY double‑angle tokens: <<TOKEN>>
      * Brace tokens: {{token}} (case‑insensitive) for convenience in JSON/YAML
  - JSON templates are tokenized as text → parsed → patched via mapping JSONPaths (in-place)
- - Diagnostics and Reports are now OPT-IN:
+ - Diagnostics and Reports are OPT-IN:
      * Diagnostics only when -Diagnostics is passed (lazy report dir/log creation)
      * Reports (JSON/MD/HTML, optional DOCX/PDF) only when -GenerateReports is passed
  - Optional backups under TemplatesRoot/.bak/<timestamp>
@@ -29,19 +29,19 @@ param(
 
   # --- Behavior ---
   [Parameter(Mandatory=$false)] [switch] $MaterializeTemplateFolders, # FIRST: rename 'API_NAME' → '<api>'
-  [Parameter(Mandatory=$false)] [switch] $CopyInsteadOfRename,        # if set, copy instead of rename (default = rename)
+  [Parameter(Mandatory=$false)] [switch] $CopyInsteadOfRename,        # copy instead of rename (default = rename)
   [Parameter(Mandatory=$false)] [switch] $InPlace,                    # apply mapping directly to source files
-  [Parameter(Mandatory=$false)] [switch] $BackupBeforeWrite,          # create backups under TemplatesRoot/.bak/<timestamp>
+  [Parameter(Mandatory=$false)] [switch] $BackupBeforeWrite,          # backups under TemplatesRoot/.bak/<timestamp>
   [Parameter(Mandatory=$false)] [switch] $AllowMissing,               # allow unresolved tokens without failing
   [Parameter(Mandatory=$false)] [string] $Environment,                # base|dev|tst|pre|prod
-  [Parameter(Mandatory=$false)] [string] $SpecPath,                   # optional external OpenAPI spec (in-place into template path)
+  [Parameter(Mandatory=$false)] [string] $SpecPath,                   # optional external OpenAPI spec (in-place)
 
-  # --- Diagnostics ---
+  # --- Diagnostics (opt-in) ---
   [Parameter(Mandatory=$false)] [switch] $Diagnostics,
   [Parameter(Mandatory=$false)] [int]    $DiagDumpChars = 160,
   [Parameter(Mandatory=$false)] [switch] $DiagSaveSamples,
 
-  # --- Report export (now OPT-IN) ---
+  # --- Reports (opt-in) ---
   [Parameter(Mandatory=$false)] [switch] $GenerateReports,
   [Parameter(Mandatory=$false)] [switch] $ExportDocx,
   [Parameter(Mandatory=$false)] [switch] $ExportPdf
@@ -72,7 +72,6 @@ $diagLog     = $null
 
 function Write-Diag([string]$m){
   if($Diagnostics.IsPresent){
-    # Create reports dir/log lazily
     if(-not $reportsRoot){
       $reportsRoot = Join-Path $TemplatesRoot "reports"
       if(-not (Test-Path -LiteralPath $reportsRoot)){
@@ -131,7 +130,7 @@ function Backup-IfExists([string]$p){
   if(Test-Path -LiteralPath $p){
     $bak = Make-BackupPath $p
     Copy-Item -LiteralPath $p -Destination $bak -Force
-    Write-Diag "Backed up '$p' → '$bak'"
+    Write-Diag "Backed up '$p' -> '$bak'"
     return $bak
   }
   return $null
@@ -283,13 +282,21 @@ function Replace-Tokens(
 }
 
 # -----------------------------------------------------------------------------
-# Template path resolver (API_NAME-aware) with namedValues fallbacks
+# Template resolution (mapping + robust fallbacks incl. case-insensitive scan)
 # -----------------------------------------------------------------------------
+function Find-CaseInsensitiveFile([string]$root, [string]$regex){
+  # Returns first match by regex (case-insensitive) or $null
+  $ciRegex = [regex]"(?i)$regex"
+  foreach($item in Get-ChildItem -LiteralPath $root -Recurse -File){
+    if($ciRegex.IsMatch($item.FullName)){ return $item.FullName }
+  }
+  return $null
+}
 
 function Tpl([string]$logical){
   $mappingObj = $script:mappingObj
 
-  # 1) Use mapping path if present
+  # 1) If mapping has a path, use it (try API_NAME replaced, then literal)
   if($mappingObj.templates.PSObject.Properties.Name -contains $logical){
     $rel = [string]$mappingObj.templates.$logical
     $relReplaced = $rel -replace 'API_NAME',$script:apiName
@@ -299,20 +306,33 @@ function Tpl([string]$logical){
     elseif(Test-Path -LiteralPath $fullLiteral){ return $fullLiteral }
   }
 
-  # 2) Fallbacks for named values
+  # 2) Fallbacks for named values with both casing styles and a CI scan
   switch ($logical) {
-    'namedValueBackendInformation.json'  {
-      $p = Join-Path $TemplatesRoot ("namedValues/{0}-backend-scopeid/namedValueInformation.json" -f $script:apiName)
-      if(Test-Path $p){ return $p }
+
+    'namedValueBackendInformation.json' {
+      # Common/expected path
+      $p1 = Join-Path $TemplatesRoot ("namedValues/{0}-backend-scopeid/namedValueInformation.json" -f $script:apiName)
+      if(Test-Path $p1){ return $p1 }
+
+      # Case-insensitive scan: any .../namedValues/*backend-scopeid*/namedValueInformation.json
+      $scan = Find-CaseInsensitiveFile -root $TemplatesRoot -regex 'namedValues[\\/].*backend\-scopeid[\\/].*namedValueInformation\.json$'
+      if($scan){ return $scan }
     }
+
     'namedValueFrontendInformation.json' {
-      $p = Join-Path $TemplatesRoot "namedValues/consuming-frontend-clientid/namedValueInformation.json"
-      if(Test-Path $p){ return $p }
+      # Two common folder casings:
+      $p2a = Join-Path $TemplatesRoot "namedValues/consuming-frontend-clientid/namedValueInformation.json"
+      $p2b = Join-Path $TemplatesRoot "namedValues/CONSUMING-frontend-clientid/namedValueInformation.json"
+      if(Test-Path $p2a){ return $p2a }
+      if(Test-Path $p2b){ return $p2b }
+
+      # Case-insensitive scan: any .../namedValues/*frontend-clientid*/namedValueInformation.json
+      $scan = Find-CaseInsensitiveFile -root $TemplatesRoot -regex 'namedValues[\\/].*frontend\-clientid[\\/].*namedValueInformation\.json$'
+      if($scan){ return $scan }
     }
   }
 
-  # If not found, return $null (callers will skip)
-  return $null
+  throw "Template '$logical' not found (tried mapping + fallbacks)."
 }
 
 # -----------------------------------------------------------------------------
@@ -375,7 +395,7 @@ Write-Diag ("Brace token keys available: {0}" -f ([string]::Join(', ', ( $tokens
 # Step 1 — Materialize template folders (rename API_NAME → <api>) incl. nested dirs
 # -----------------------------------------------------------------------------
 if($MaterializeTemplateFolders.IsPresent){
-  Write-Info "Materializing template folders (API_NAME → '$script:apiName') under $TemplatesRoot"
+  Write-Info "Materializing template folders (API_NAME -> '$script:apiName') under $TemplatesRoot"
 
   # 1) Known top-level segments from mapping
   foreach ($tplProp in $mappingObj.templates.PSObject.Properties) {
@@ -386,13 +406,13 @@ if($MaterializeTemplateFolders.IsPresent){
       if ((Test-Path -LiteralPath $src) -and -not (Test-Path -LiteralPath $dst)) {
         if ($CopyInsteadOfRename.IsPresent) {
           Copy-Item -LiteralPath $src -Destination $dst -Recurse -Force
-          Write-Info "Copied '$src' → '$dst'"
+          Write-Info "Copied '$src' -> '$dst'"
         } else {
           Move-Item -LiteralPath $src -Destination $dst -Force
-          Write-Info "Renamed '$src' → '$dst'"
+          Write-Info "Renamed '$src' -> '$dst'"
         }
       } else {
-        Write-Diag "Materialize (mapping) skip: src exists? $(Test-Path $src) ; dst exists? $(Test-Path $dst)"
+        Write-Diag "Materialize (mapping) skip: src? $(Test-Path $src) ; dst? $(Test-Path $dst)"
       }
     }
   }
@@ -406,15 +426,15 @@ if($MaterializeTemplateFolders.IsPresent){
     if ($newName -eq $d.Name) { continue }
     $target = Join-Path $d.Parent.FullName $newName
     if (Test-Path -LiteralPath $target) {
-      Write-Diag "Skip rename (target exists): $($d.FullName) → $target"
+      Write-Diag "Skip rename (target exists): $($d.FullName) -> $target"
       continue
     }
     if ($CopyInsteadOfRename.IsPresent) {
       Copy-Item -LiteralPath $d.FullName -Destination $target -Recurse -Force
-      Write-Info "Copied folder: '$($d.FullName)' → '$target'"
+      Write-Info "Copied folder: '$($d.FullName)' -> '$target'"
     } else {
       Rename-Item -LiteralPath $d.FullName -NewName $newName -Force
-      Write-Info "Renamed folder: '$($d.FullName)' → '$target'"
+      Write-Info "Renamed folder: '$($d.FullName)' -> '$target'"
     }
   }
 }
