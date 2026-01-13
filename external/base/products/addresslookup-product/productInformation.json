@@ -1,0 +1,8 @@
+{
+  "properties": {
+    "displayName": "AddressLookup",
+    "description": "AddressLookup Product",
+    "state": "published",
+    "subscriptionRequired": false
+  }
+}

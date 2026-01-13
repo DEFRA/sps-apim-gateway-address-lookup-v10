@@ -1,0 +1,30 @@
+{
+  "properties": {
+    "path": "api/address-lookup",
+    "apiRevision": "1",
+    "apiVersion": "v1.0",
+    "apiVersionSetId": "/subscriptions/#{{ subscriptionId }}/resourceGroups/#{{ apiManagementServiceResourceGroup }}/providers/Microsoft.ApiManagement/service/#{{ apiManagementServiceName }}/apiVersionSets/addressLookupVersionset",
+    "authenticationSettings": {},
+    "contact": {
+      "email": "defra.helpline@defra.gsi.gov.uk",
+      "name": "Department for Environment, Food and Rural Affairs - GOV UK",
+      "url": "https://www.gov.uk/government/organisations/department-for-environment-food-rural-affairs"
+    },
+    "description": "The DEFRA Address Lookup REST API provides a method to search for a list of addresses  by Postal Code or UPRN (Unique Property Reference Number)",
+    "isCurrent": true,
+    "license": {
+      "name": "DEFRA API License Agreement",
+      "url": "https://www.gov.uk/government/organisations/department-for-environment-food-rural-affairs/license/url"
+    },
+    "displayName": "Address Lookup",
+    "protocols": [
+      "https"
+    ],
+    "serviceUrl": "https://#{{ alv1ExtServiceUrlHost }}/ws/rest/DEFRA/v1/address",
+    "subscriptionKeyParameterNames": {
+      "header": "Ocp-Apim-Subscription-Key",
+      "query": "subscription-key"
+    },
+    "subscriptionRequired": false
+  }
+}
