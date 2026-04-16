@@ -1,6 +1,6 @@
 # sps-apim-gateway-address-lookup (Address Lookup v10)
 
-> ⚠️ **This repository contains under-development code and is used for SPS APIM self-service development purposes.**
+> ⚠️ **This repository contains under-development code and is used for APIM self-service development purposes.**
 
 ## Overview
 This repository stores the **source-of-truth for APIM configuration** for the Address Lookup APIs (operations, versions, policies, products, and named values) and the automation required to deploy to **Dev → Test → Prod** through Azure DevOps.
