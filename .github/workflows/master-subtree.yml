@@ -15,8 +15,8 @@ permissions:
 env:
   CENTRAL_REPO: DEFRA/sps-apim-gateway
   BASE_BRANCH: master
-  TEAM_REMOTE_NAME: address-lookup-v10
-  TEAM_REPO_URL: DEFRA/address-lookup-v10
+  TEAM_REMOTE_NAME: sps-apim-gateway-address-lookup-v10
+  TEAM_REPO_URL: DEFRA/sps-apim-gateway-address-lookup-v10
   TEAM_BRANCH: master
   TEAM_WINS_ON_CONFLICT: "true"
 
@@ -135,7 +135,7 @@ jobs:
             "internal/pre/named values"
           )
 
-          TEAM_REMOTE="address-lookup-v10"
+          TEAM_REMOTE="sps-apim-gateway-address-lookup-v10"
           TEAM_REMOTE_BRANCH="master"
 
           git fetch "$TEAM_REMOTE"
@@ -181,7 +181,7 @@ jobs:
           # Commit Named Value changes (if any)
           ####################################################
           if ! git diff --cached --quiet; then
-            git commit -m "Sync named values from address-lookup-v10"
+            git commit -m "Sync named values from sps-apim-gateway-address-lookup-v10"
           else
             echo "No named value changes to commit"
           fi
