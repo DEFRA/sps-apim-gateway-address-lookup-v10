@@ -3,7 +3,7 @@ info:
   title: Address Lookup
   description: The DEFRA Address Lookup REST API provides a method to search for a list of addresses  by Postal Code or UPRN (Unique Property Reference Number)
   contact:
-    name: 'Department for Environment, Food and Rural Affairs - GOV UK Demo'
+    name: 'Department for Environment, Food and Rural Affairs - GOV UK'
     url: https://www.gov.uk/government/organisations/department-for-environment-food-rural-affairs
     email: defra.helpline@defra.gsi.gov.uk
   license:
