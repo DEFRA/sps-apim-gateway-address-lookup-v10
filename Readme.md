@@ -178,9 +178,21 @@ sequenceDiagram
 
 ## Local Validation
 ```powershell
-./scripts/Validate-APIMStructure.ps1" -RootPath . -ParentFolders "external,internal" -Environments "base"
+./scripts/Validate-APIMStructure.ps1" `
+            -Journey both `
+            -Environment base `
+            -FailOnError `
+            -EnforceUpperSnakeCaseDisplayName
 ```
-
+```powershell
+./scripts/Validate-APIMPolicyRules.ps1" `
+            -RootPath . `
+            -Journey both `
+            -Environments base `
+            -ApiName * `
+            -FailOnError `
+            -SuppressQuoteLint
+```
 ## Contacts
 - **Maintainer:** Prathap Mathiyalagan  
 - **Manager:** David Wickett
